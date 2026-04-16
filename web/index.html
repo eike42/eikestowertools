@@ -1,0 +1,386 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+	<meta charset="UTF-8" />
+	<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+	<title>Idle Tower Defense - Tool Collection</title>
+	<link rel="preconnect" href="https://fonts.googleapis.com" />
+	<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+	<link
+		href="https://fonts.googleapis.com/css2?family=Chakra+Petch:wght@400;600;700&family=Space+Grotesk:wght@400;500;700&display=swap"
+		rel="stylesheet"
+	/>
+	<style>
+		:root {
+			--bg-deep: #091018;
+			--bg-mid: #142435;
+			--panel: #0f1b2d;
+			--panel-soft: #17283d;
+			--line: #2e4968;
+			--text: #eef7ff;
+			--text-soft: #c7dae9;
+			--accent: #f5b700;
+			--accent-2: #5bc0eb;
+			--ok: #8fd694;
+			--shadow: 0 12px 30px rgba(0, 0, 0, 0.35);
+			--radius: 16px;
+		}
+
+		* {
+			box-sizing: border-box;
+		}
+
+		body {
+			margin: 0;
+			font-family: "Space Grotesk", "Segoe UI", sans-serif;
+			color: var(--text);
+			background:
+				radial-gradient(circle at 85% 20%, rgba(91, 192, 235, 0.14), transparent 42%),
+				radial-gradient(circle at 10% 80%, rgba(245, 183, 0, 0.14), transparent 38%),
+				linear-gradient(150deg, var(--bg-deep), var(--bg-mid));
+			min-height: 100vh;
+			line-height: 1.5;
+		}
+
+		.backdrop-grid {
+			position: fixed;
+			inset: 0;
+			pointer-events: none;
+			opacity: 0.2;
+			background-image:
+				linear-gradient(to right, rgba(255, 255, 255, 0.06) 1px, transparent 1px),
+				linear-gradient(to bottom, rgba(255, 255, 255, 0.06) 1px, transparent 1px);
+			background-size: 40px 40px;
+			mask-image: radial-gradient(circle at center, black 35%, transparent 100%);
+		}
+
+		.container {
+			width: min(1120px, calc(100% - 2rem));
+			margin: 0 auto;
+			padding: 2.5rem 0 3rem;
+			position: relative;
+			z-index: 1;
+		}
+
+		.hero {
+			border: 1px solid var(--line);
+			border-radius: var(--radius);
+			padding: 2rem;
+			background: linear-gradient(145deg, rgba(23, 40, 61, 0.9), rgba(10, 20, 35, 0.92));
+			box-shadow: var(--shadow);
+			animation: rise 700ms ease both;
+		}
+
+		.kicker {
+			display: inline-block;
+			font-size: 0.78rem;
+			letter-spacing: 0.12em;
+			text-transform: uppercase;
+			color: var(--accent);
+			margin-bottom: 0.6rem;
+			font-weight: 700;
+		}
+
+		h1 {
+			margin: 0;
+			font-family: "Chakra Petch", sans-serif;
+			font-size: clamp(2rem, 5.2vw, 3.2rem);
+			line-height: 1.06;
+			letter-spacing: 0.01em;
+		}
+
+		.hero p {
+			max-width: 68ch;
+			color: var(--text-soft);
+			margin-top: 0.9rem;
+			margin-bottom: 0;
+		}
+
+		.tools-grid {
+			margin-top: 1.35rem;
+			display: grid;
+			grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+			gap: 1rem;
+		}
+
+		.tool-card {
+			display: flex;
+			flex-direction: column;
+			border: 1px solid var(--line);
+			background: linear-gradient(160deg, rgba(15, 27, 45, 0.95), rgba(9, 17, 27, 0.96));
+			border-radius: var(--radius);
+			overflow: hidden;
+			box-shadow: var(--shadow);
+			transform: translateY(8px);
+			opacity: 0;
+			animation: rise 700ms ease forwards;
+		}
+
+		.tool-card:nth-child(1) { animation-delay: 90ms; }
+		.tool-card:nth-child(2) { animation-delay: 170ms; }
+		.tool-card:nth-child(3) { animation-delay: 250ms; }
+		.tool-card:nth-child(4) { animation-delay: 330ms; }
+		.tool-card:nth-child(5) { animation-delay: 410ms; }
+
+		.shot {
+			aspect-ratio: 16 / 9;
+			width: 100%;
+			object-fit: cover;
+			border-bottom: 1px solid var(--line);
+			display: block;
+		}
+
+		.tool-content {
+			padding: 1rem 1rem 1.1rem;
+			display: flex;
+			flex-direction: column;
+			flex: 1;
+		}
+
+		.tool-content h2 {
+			font-family: "Chakra Petch", sans-serif;
+			margin: 0 0 0.4rem;
+			font-size: 1.2rem;
+			line-height: 1.15;
+		}
+
+		.tool-content p {
+			margin: 0;
+			color: var(--text-soft);
+			font-size: 0.94rem;
+		}
+
+		.links {
+			margin-top: auto;
+			padding-top: 0.9rem;
+			display: flex;
+			gap: 0.55rem;
+			flex-wrap: wrap;
+		}
+
+		.links a {
+			text-decoration: none;
+			font-weight: 700;
+			font-size: 0.85rem;
+			letter-spacing: 0.01em;
+			border-radius: 999px;
+			padding: 0.42rem 0.8rem;
+			transition: transform 140ms ease, background-color 140ms ease;
+		}
+
+		.links a.primary {
+			background: var(--accent);
+			color: #1b1602;
+		}
+
+		.links a.secondary {
+			background: rgba(91, 192, 235, 0.2);
+			color: var(--accent-2);
+			border: 1px solid rgba(91, 192, 235, 0.45);
+		}
+
+		.links a:hover,
+		.links a:focus-visible {
+			transform: translateY(-1px);
+		}
+
+		footer {
+			margin-top: 1.4rem;
+			color: #9ab0c4;
+			font-size: 0.9rem;
+			text-align: center;
+			animation: rise 700ms ease 480ms both;
+		}
+
+		@keyframes rise {
+			from {
+				opacity: 0;
+				transform: translateY(12px);
+			}
+			to {
+				opacity: 1;
+				transform: translateY(0);
+			}
+		}
+
+		@media (max-width: 640px) {
+			.container {
+				width: min(1120px, calc(100% - 1.1rem));
+				padding-top: 1.2rem;
+			}
+
+			.hero {
+				padding: 1.2rem;
+			}
+
+			.tool-content h2 {
+				font-size: 1.1rem;
+			}
+		}
+	</style>
+</head>
+<body>
+	<div class="backdrop-grid" aria-hidden="true"></div>
+
+	<main class="container">
+		<section class="hero">
+			<span class="kicker">Creator Toolkit</span>
+			<h1>Idle Tower Defense Tools</h1>
+			<p>
+				A quick showcase of the helper tools I built.
+			</p>
+		</section>
+
+		<section class="tools-grid" aria-label="Tool cards">
+			<article class="tool-card">
+				<img
+					class="shot"
+					src="img/reroll.png"
+					alt="Submodule reroll simulator screenshot"
+				/>
+				<div class="tool-content">
+					<h2>Submodule reroll simulator</h2>
+					<p>Simulate reroll-costs (simple version)</p>
+					<div class="links">
+						<a target=_blank class="primary" href="https://tower.spacewi.de/submod.html">Open Tool</a>
+						<a target=_blank class="secondary" href="https://www.reddit.com/r/TheTowerGame/comments/1j4zsoj/submodulererollsimulator/">View Reddit</a>
+					</div>
+				</div>
+			</article>
+
+            			<article class="tool-card">
+				<img
+					class="shot"
+					src="img/reroll2.png"
+					alt="Submodule reroll simulator screenshot"
+				/>
+				<div class="tool-content">
+					<h2>Submodule reroll simulator V2</h2>
+					<p>Simulate reroll-costs (detailed version)</p>
+					<div class="links">
+						<a target=_blank class="primary" href="https://tower.spacewi.de/submod_new.html">Open Tool</a>
+						<a target=_blank class="secondary" href="https://www.reddit.com/r/TheTowerGame/comments/1lwzvbx/submodrerollsimulator_v2/">View Reddit</a>
+					</div>
+				</div>
+			</article>
+
+			<article class="tool-card">
+				<img
+					class="shot"
+					src="img/dw.png"
+					alt="Death wave kill wave predictions"
+				/>
+				<div class="tool-content">
+					<h2>DW killwave prediction</h2>
+					<p>Predict the outcome damage pool of the death wave.</p>
+					<div class="links">
+						<a target=_blank class="primary" href="https://tower.spacewi.de/DW.html">Open Tool</a>
+						<a target=_blank class="secondary" href="https://www.reddit.com/r/TheTowerGame/comments/1im1zm8/killwave_calculator_for_the_death_wave/">View Reddit</a>
+					</div>
+				</div>
+			</article>
+
+			<article class="tool-card">
+				<img
+					class="shot"
+					src="img/merge.png"
+					alt="Module merge instructions"
+				/>
+				<div class="tool-content">
+					<h2>Module merge instructions</h2>
+					<p>Helps you plan your module merges.</p>
+					<div class="links">
+						<a target=_blank class="primary" href="https://tower.spacewi.de/modulemerge2.html">Open Tool</a>
+						<a target=_blank class="secondary" href="https://www.reddit.com/r/TheTowerGame/comments/1gpl3fp/module_merge_advisor_tool/">View Reddit</a>
+					</div>
+				</div>
+			</article>
+
+			<article class="tool-card">
+				<img
+					class="shot"
+					src="img/spawn.png"
+					alt="Spawn count estimation tool screenshot"
+				/>
+				<div class="tool-content">
+					<h2>Spawn count estimation tool</h2>
+					<p>Check if your spawn counts are accurate and losses from device are minimal.</p>
+					<div class="links">
+						<a target=_blank class="primary" href="https://tower.spacewi.de/SpawncountCalc.html">Open Tool</a>
+						<a target=_blank class="secondary" href="https://www.reddit.com/r/TheTowerGame/comments/1huyrn3/number_of_enemy_spawns_losses/">View Reddit</a>
+					</div>
+				</div>
+			</article>
+
+			<article class="tool-card">
+				<img
+					class="shot"
+					src="img/league.png"
+					alt="League simulator screenshot"
+				/>
+				<div class="tool-content">
+					<h2>League simulator</h2>
+					<p>Simulate league sizes and player progression</p>
+					<div class="links">
+						<a target=_blank class="primary" href="https://tower.spacewi.de/leaguesim2026.html">Open Tool</a>
+						<a target=_blank class="secondary" href="https://www.reddit.com/r/TheTowerGame/comments/1qzzgn9/leagues_and_player_numbers/">View Reddit</a>
+					</div>
+				</div>
+			</article>
+
+            
+			<article class="tool-card">
+				<img
+					class="shot"
+					src="img/lts.png"
+					alt="LTS vs. tourney placement survey results screenshot"
+				/>
+				<div class="tool-content">
+					<h2>LTS vs. tourney placement survey results</h2>
+					<p>Compare LTS and tourney placement results from the survey.</p>
+					<div class="links">
+						<a target=_blank class="primary" href="https://tower.spacewi.de/lts.html">Open Tool</a>
+						<a target=_blank class="secondary" href="https://www.reddit.com/r/TheTowerGame/comments/1pepck3/competition_who_is_the_pound_for_pound_tower_champ/">View Reddit</a>
+					</div>
+				</div>
+			</article>
+
+            <article class="tool-card">
+				<img
+					class="shot"
+					src="img/perk.png"
+					alt="Perk to coin simulator screenshot"
+				/>
+				<div class="tool-content">
+					<h2>Perk to coin simulator</h2>
+					<p>Simulate the effects on getting perks earlier or later.</p>
+					<div class="links">
+						<a target=_blank class="primary" href="https://tower.spacewi.de/TowerCalc2.html">Open Tool</a>
+						<a target=_blank class="secondary" href="https://www.reddit.com/r/TheTowerGame/comments/1gew6hb/the_effects_of_taking_coin_perks_ealier_or_later/">View Reddit</a>
+					</div>
+				</div>
+			</article>
+
+            <article class="tool-card">
+				<img
+					class="shot"
+					src="img/cells.png"
+					alt="Elite cell calculator screenshot"
+				/>
+				<div class="tool-content">
+					<h2>Elite cell calculator</h2>
+					<p>Calculate elite cells (google sheets link, old tool).</p>
+					<div class="links">
+						<a target=_blank class="primary" href="https://docs.google.com/spreadsheets/d/1gOazDihAYlyMhQ_f10uSFTpkl8Y7v0Zs29UaOCO--xk/edit?usp=sharing">Open Tool</a>
+						<a target=_blank class="secondary" href="https://www.reddit.com/r/TheTowerGame/comments/1eypokz/elitecell_calculator_per_100_waves/">View Reddit</a>
+					</div>
+				</div>
+			</article>
+		</section>
+
+		<footer>
+			Built with help of AI. Thanks for doing the UI for me!
+		</footer>
+	</main>
+</body>
+</html>

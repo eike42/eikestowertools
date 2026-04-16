@@ -1,0 +1,101 @@
+<html>
+<head>
+<title>TowerCalc</title>
+<script
+  src="https://code.jquery.com/jquery-3.7.1.min.js"
+  integrity="sha256-/JqT3SQfawRcv/BIHPThkBvs0OEvtFFmqPF/lYI/Cxo="
+  crossorigin="anonymous"></script>
+<script src="towercalc.js"></script>
+<script>
+
+function calc()
+{
+	var tier = parseInt($('#tier').val());
+	var wave = parseInt($('#wave').val());
+	var eb = parseInt($('#eb').val());
+	var ws = parseInt($('#ws').val());
+	var fps = parseInt($('#fps').val());
+
+	var cb = parseFloat($('#cb').val()) * coinbonus[tier];
+
+	var html=`Tier ${tier} Wave ${wave} <br />`;
+
+	html+="Coin bonus: "+cb.toFixed(2)+"<br />";
+	
+	var res = totalSpawns(wave, eb, ws);
+
+	for(key in res)
+		html += key + ": " + parseInt(res[key]/(1+fps/100)) + "<br />";
+
+html+="<table><tr><th>Wave</th><th>Spawn-total</th><th>Spawn-basic</th><th>Spawn-fast</th><th>Spawn-tank</th><th>Spawn-ranged</th><th>Spawn-boss</th></tr>";
+	for(wave=0;wave<1000;wave+=1)
+	{
+		res = totalSpawns(wave,eb,ws);
+		html+=`<tr><td>${wave}</td>`;
+		
+		html+="<td>"+res.spawns.toFixed(0)+"</td>";
+		html+="<td>"+res.basic.toFixed(0)+"</td>";
+		html+="<td>"+res.fast.toFixed(1)+"</td>";
+		html+="<td>"+res.tank.toFixed(1)+"</td>";
+		html+="<td>"+res.ranged.toFixed(1)+"</td>";
+		html+="<td>"+res.boss.toFixed(1)+"</td></tr>";
+	
+	}
+	html+="</table>";
+
+
+	$('#result').html(html);
+
+
+
+// coin bot
+
+// GT
+// BH
+// slow
+// CPK
+
+
+
+
+
+
+}
+
+
+
+
+</script>
+
+</head>
+<body>
+
+Tier: <input type="text" id="tier" value="9" /> <br />
+Wave: <input type="text" id="wave" value="1000" /> <br />
+Enemy Balance: <input type="text" id="eb" value="6" /> <br />
+Wave skip: <input type="text" id="ws" value="4" /> <br />
+FPS loss %: <input type="text" id="fps" value="9" /> <br />
+Coin bonuses T1 %: <input type="text" id="cb" value="17.84" /> <br />
+
+<br />
+<br />
+<button id="calc" onclick="calc();" >calc</button>
+<br />
+<br />
+<div id="result">
+
+
+
+</div>
+
+
+
+
+
+
+
+
+
+
+</body>
+</html>

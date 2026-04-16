@@ -1,0 +1,376 @@
+<html>
+<head>
+<title>TowerCalc</title>
+<script
+  src="https://code.jquery.com/jquery-3.7.1.min.js"
+  integrity="sha256-/JqT3SQfawRcv/BIHPThkBvs0OEvtFFmqPF/lYI/Cxo="
+  crossorigin="anonymous"></script>
+<script
+  src="https://code.jquery.com/ui/1.14.0/jquery-ui.min.js"
+  integrity="sha256-Fb0zP4jE3JHqu+IBB9YktLcSjI1Zc6J2b6gTjB0LpoM="
+  crossorigin="anonymous"></script>
+<link rel="stylesheet" href="https://code.jquery.com/ui/1.14.0/themes/base/jquery-ui.css" /> 
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" integrity="sha384-QWTKZyjpPEjISv5WaRU9OFeRpok6YctnYmDr5pNlyT2bRjXh0JMhjY6hW+ALEwIH" crossorigin="anonymous">
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.min.js" integrity="sha384-0pUGZvbkm6XF6gxjEnlmuGrJXVbNuzT9qBBavbLwCsOGabYfZo0T0to5eqruptLy" crossorigin="anonymous"></script>
+<style>
+.slid { margin-left:30px; margin-right:20px; margin-bottom:10px; }
+
+.imgcontainer {   
+	position: relative;
+	text-align: center;
+	color: white;
+	display: inline;
+}
+ 
+.imgtext {
+  position: absolute;
+  top: 15px;
+  left: 5px;
+}
+
+body 
+{
+    margin: 10px;
+    background-color: 34326C;
+    color: white;
+}
+
+</style>
+<script>
+
+var ranking = ["r1", "r2", "e1", "e2", "l1", "l2", "m1", "m2", "a1"];
+
+function rank(m) { return ranking.indexOf(m) + 1 };
+
+var merges = {
+"r2": 
+{
+	same: true,
+	need: ["r1","r1","r1"]
+},
+
+"e1": 
+{
+	same: false,
+	need: ["r2", "r2", "r2"]
+},
+
+"e2": 
+{
+	same: true,
+	need: ["e1","e1"]
+},
+
+"l1": 
+{
+	same: false,
+	need: ["e2","e2","e2"]
+},
+
+"l2": 
+{
+	same: true,
+	need: ["l1","e2"]
+},
+
+"m1": 
+{
+	same: false,
+	need: ["l2","l2"]
+},
+
+"m2": 
+{
+	same: false,
+	need: ["m1","l2"]
+},
+
+"a1": 
+{
+	same: true,
+	need: ["m2","e2","e2"]
+}
+}
+
+
+ $( function() {
+    
+	$('#calc').click(getmerges);
+	
+	$(document).ready(function(){
+    setColor($('#base'));
+    setColor($('#want'));
+    $('select').change(function(){
+         setColor(this);       
+    });
+ });
+
+function setColor(t)
+{
+   var color =  $(t).find('option:selected').css('background');
+   $(t).css('background', color); 
+}
+	
+	
+	
+  } );
+
+	function getmerges()
+	{
+		html="";
+		var base = $('#base').val();
+		var want=  $('#want').val();
+		
+		var have = getHave();
+		have.push(base);
+		
+		var actions = [];
+		var missing = [];
+		
+		doMerge(want, have, missing, actions);
+		
+		console.log(actions, missing);
+		actions.sort((x,y) => rank(x) - rank(y));
+		
+		
+		if(missing.length)
+		{
+			html += "<p>Missing modules: </p>";
+			for(var i=0;i<missing.length;i++)
+			{
+				html += img(missing[i])+" ";
+			}
+		}
+		
+		html += "<p>Actions needed:</p>"
+		
+		for(var i=0;i<actions.length;i++)
+		{
+			html += "Merge "+action2html(actions[i])+"<br />";
+		}
+		
+		
+		console.log(base,want,have,merges);
+	
+		$('#result').html(html);
+	}
+
+	function getmergecode(want)
+	{
+		if(merges[want]) return merges[want];
+		want=want.substr(1);
+		
+		console.log(want);
+		
+		var m=JSON.parse(JSON.stringify(merges[want]));
+		
+		m.need[0]="u"+m.need[0];
+		
+		if(m.same)
+		{
+		for(var i =1;i<m.need.length;i++)
+			m.need[i] = "u" + m.need[i];
+		}
+		return m;
+	}
+
+
+	function doMerge(want, have, missing, actions)
+	{
+		if(want=="r1") 
+		{
+			missing.push("r1")
+		} 
+		else if (want == "ue1")
+		{
+			missing.push("ue1");
+		}
+		else 
+		{
+	
+			var next = getmergecode(want);
+			
+			for(var i=0;i<next.need.length;i++)
+			{
+				var need = next.need[i];
+				
+				if(have.indexOf(need)!=-1)
+				{
+					have.splice(have.indexOf(need),1);
+				}
+				else 
+				{
+					doMerge(need, have, missing, actions);
+				}
+			}
+			next.make = want;
+			actions.push({ make:want, need:next.need, same:next.same});
+		}
+	}
+
+	function action2html(action)
+	{
+		html=action.need[0].startsWith("u") ? "(unique) " : "";
+		for(var i=0;i<action.need.length;i++)
+		{
+			if(i>0) html += " + ";
+			html += img(action.need[i]); 
+			
+		}
+		html += " => " + img(action.make) + (action.same?" of the same":"");
+		return html;
+	}
+	
+	function img(type)
+	{
+		return '<div class="imgcontainer"><img src="p/'+type+'.jpg"><div class="imgtext">'+id2name(type)+"</div></div>";
+	}
+
+	function getHave()
+	{
+		var list=[];
+		Get1Have(list,"r1");
+		Get1Have(list,"r2");
+		Get1Have(list,"e1");
+		Get1Have(list,"e2");
+		Get1Have(list,"l1");
+		Get1Have(list,"l2");
+		Get1Have(list,"m1");
+		Get1Have(list,"m2");
+		Get1Have(list,"a1");
+		Get1Have(list,"a1");
+		Get1Have(list,"a1");
+		Get1Have(list,"ue1");
+		Get1Have(list,"ue2");
+		return list;
+	}
+	
+	function Get1Have(list,mod)
+	{
+		var num=parseInt($('#fod'+mod).val());
+		for(var i=0;i<num;i++)
+			list.push(mod);
+	}
+	
+	function id2name(id)
+	{
+		var m,p;
+		if(id.startsWith('u'))
+		{
+			m=id.charAt(1);
+			p=id.charAt(2);
+			return 'u' + m.toUpperCase() + (p=="2" ? "+" : "");
+		}
+		else 
+		{
+			m=id.charAt(0);
+			p=id.charAt(1);
+			return m.toUpperCase() + (p=="2" ? "+" : "");
+		}
+	}
+
+
+</script>
+
+</head>
+<body>
+<div class=container>
+  <div class="row align-items-start">
+
+<div class=col-2>
+
+I have a unique in:
+</div>
+<div class=col-2>
+
+<select id=base>
+<option style="color:black;background:#E28CEE;" value="ue1" >Epic</option>
+<option style="color:black;background:#E28CEE;" value="ue2">Epic+</option>
+<option style="color:black;background:#ECAE6C;" value="ul1">Legendary</option>
+<option style="color:black;background:#ECAE6C;" value="ul2" selected>Legendary+</option>
+<option style="color:black;background:#E17B85;" value="um1">Mythic</option>
+<option style="color:black;background:#E17B85;" value="um2">Mythic+</option>
+</select>
+</div>
+</div>
+<div class="row align-items-start">
+
+<div class=col-2>
+
+
+I want to merge: 
+</div>
+<div class=col-2>
+
+<select id=want>
+<option style="color:black;background:#E28CEE;" value="ue2">Epic+</option>
+<option style="color:black;background:#ECAE6C;" value="ul1" >Legendary</option>
+<option style="color:black;background:#ECAE6C;" value="ul2">Legendary+</option>
+<option style="color:black;background:#E17B85;" value="um1">Mythic</option>
+<option style="color:black;background:#E17B85;" value="um2" selected>Mythic+</option>
+<option style="color:black;background:#9DE390;" value="ua1">Ancestral</option>
+</select>
+</div>
+</div>
+
+<div class="row align-items-start">
+<div class=col-2>
+
+I have uniqes in:
+</div>
+</div>
+
+<div class="row align-items-start">
+
+<div class=col-2>Epic:
+</div>
+
+<div class=col-2>
+<input id="fodue1" value="1" type=number style="color:black;background:#E28CEE;">
+</div>
+</div>
+
+<div class="row align-items-start">
+
+<div class=col-2>Epic+:
+</div>
+<div class=col-2>
+<input id="fodue2" value="0" type=number style="color:black;background:#E28CEE;">
+</div>
+
+</div>
+<div class="row align-items-start">
+
+<div class=col-2>
+
+I have fodder in:
+</div>
+
+<div class="row align-items-start"><div class=col-2>Rare:      </div><div class=col-2><input id="fodr1" value="0" type=number style="color:black;background:#8EDBF6;"></div></div>
+<div class="row align-items-start"><div class=col-2>Rare+:     </div><div class=col-2><input id="fodr2" value="2" type=number style="color:black;background:#8EDBF6;"></div></div>
+<div class="row align-items-start"><div class=col-2>Epic:      </div><div class=col-2><input id="fode1" value="0" type=number style="color:black;background:#E28CEE;"></div></div>
+<div class="row align-items-start"><div class=col-2>Epic+:     </div><div class=col-2><input id="fode2" value="0" type=number style="color:black;background:#E28CEE;"></div></div>
+<div class="row align-items-start"><div class=col-2>Legendary: </div><div class=col-2><input id="fodl1" value="0" type=number style="color:black;background:#ECAE6C;"></div></div>
+<div class="row align-items-start"><div class=col-2>Legendary+:</div><div class=col-2><input id="fodl2" value="0" type=number style="color:black;background:#ECAE6C;"></div></div>
+<div class="row align-items-start"><div class=col-2>Mythic:    </div><div class=col-2><input id="fodm1" value="0" type=number style="color:black;background:#E17B85;"></div></div>
+<div class="row align-items-start"><div class=col-2>Mythic+:   </div><div class=col-2><input id="fodm2" value="0" type=number style="color:black;background:#E17B85;"></div></div>
+<div class="row align-items-start"><div class=col-2>Ancestral: </div><div class=col-2><input id="foda1" value="0" type=number style="color:black;background:#9DE390;"></div></div>
+
+<div class="row align-items-start">
+<div class=col-2>
+<button id="calc">What should I do?</button>
+
+</div>
+</div>
+</div>
+
+<div id="result">
+
+</div>
+
+
+
+
+
+</body>
+</html>

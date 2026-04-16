@@ -1,0 +1,1767 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Tower Hist Progress Tracker</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 2em; }
+        textarea { width: 100%; height: 300px; }
+        table { border-collapse: collapse; margin-top: 1em; }
+        .chart-container { margin-top: 2em; }
+        .d3-chart { width: 100%; height: 300px; }
+        th, td { border: 1px solid #ccc; padding: 4px 8px; }
+        th { background: #eee; }
+        .progress { margin-top: 2em; }
+        /* Scrollable All Stats table with fixed header */
+        .all-stats-wrap { width: 100%; max-height: 480px; overflow: auto; border: 1px solid #ddd; margin-top: 1em; }
+        .all-stats-table { border-collapse: collapse; width: 100%; }
+        .all-stats-table thead th { position: sticky; top: 0; background: #f7f7f7; z-index: 2; }
+        .all-stats-table th, .all-stats-table td { border: 1px solid #ccc; padding: 6px 10px; white-space: nowrap; }
+        .all-stats-table tbody tr:nth-child(odd) td { background: #fff; }
+        .all-stats-table tbody tr:nth-child(even) td { background: #fcfcfc; }
+        .stat-group-btn { display:inline-block; padding:4px 8px; margin-right:8px; border-radius:4px; background:#f3f3f3; border:1px solid #ddd; cursor:pointer; }
+        .stat-group-btn.active { background:#0074d9; color:#fff; border-color:#0063b8; }
+        .parser-debug-wrap { margin-top: 0.8em; border: 1px solid #ddd; background: #fafafa; padding: 10px; }
+        .parser-debug-wrap h3 { margin: 0 0 8px 0; font-size: 14px; }
+        .parser-debug-wrap pre { margin: 0; white-space: pre-wrap; word-break: break-word; max-height: 260px; overflow: auto; background: #fff; border: 1px solid #e6e6e6; padding: 8px; }
+    </style>
+</head>
+<body>
+    <h1>Tower Hist Progress Tracker</h1>
+    <p>Paste your game stats below and click "Save & Show Progress".</p>
+    <textarea id="dataInput" placeholder="Paste your stats here..."></textarea>
+    <br>
+    <input id="commentInput" type="text" placeholder="Comment for this run..." style="width:100%;margin-top:0.5em;">
+    <br>
+    <label for="categoryInput" style="margin-top:0.5em;">Category:</label>
+    <select id="categoryInput" style="margin-bottom:0.5em;">
+        <option value="farming">Farming</option>
+        <option value="milestone">Milestone</option>
+        <option value="tournament">Tournament</option>
+    </select>
+    <br>
+    <button id="saveBtn">Save & Show Progress</button>
+    <label style="margin-left:12px;">
+        <input id="parseDebugToggle" type="checkbox"> Debug parser
+    </label>
+    <div id="parseDebugPanel" class="parser-debug-wrap" style="display:none;">
+        <h3>Parser Debug</h3>
+        <pre id="parseDebugOutput">No parse run yet.</pre>
+    </div>
+    <div class="progress" id="progress"></div>
+    <div class="chart-container">
+        <h2>Progress Charts</h2>
+        <div id="charts"></div>
+    </div>
+
+    <script src="https://d3js.org/d3.v7.min.js"></script>
+    <script>
+        const wspluscells = 1.32;
+        const parserDebugState = {
+            enabled: false,
+            last: null
+        };
+
+        function escapeHtml(s) {
+            return String(s)
+                .replace(/&/g, "&amp;")
+                .replace(/</g, "&lt;")
+                .replace(/>/g, "&gt;");
+        }
+
+        function renderParserDebugPanel() {
+            const panel = document.getElementById('parseDebugPanel');
+            const out = document.getElementById('parseDebugOutput');
+            if (!panel || !out) return;
+
+            if (!parserDebugState.enabled) {
+                panel.style.display = 'none';
+                return;
+            }
+
+            panel.style.display = 'block';
+            if (!parserDebugState.last) {
+                out.textContent = 'No parse run yet.';
+                return;
+            }
+
+            out.textContent = JSON.stringify(parserDebugState.last, null, 2);
+        }
+
+        function initParserDebugPanel() {
+            const toggle = document.getElementById('parseDebugToggle');
+            if (!toggle) return;
+            parserDebugState.enabled = !!toggle.checked;
+            toggle.onchange = function() {
+                parserDebugState.enabled = !!this.checked;
+                renderParserDebugPanel();
+            };
+            renderParserDebugPanel();
+        }
+
+        function towerNum(num)
+        {
+            if(typeof num != "number" || isNaN(num))
+                return num;
+
+            l10 = Math.log10(Math.abs(num));
+            if(l10<5) return num.toFixed(2);
+            if(l10<6) return (num/1000).toFixed(2)+"k";
+            if(l10<9) return (num/1000000).toFixed(2)+"M";
+            if(l10<12) return (num/1000000000).toFixed(2)+"B";
+            if(l10<15) return (num/1000000000000).toFixed(2)+"T";
+            if(l10<18) return (num/1000000000000000).toFixed(2)+"q";
+            if(l10<21) return (num/1000000000000000000).toFixed(2)+"Q";
+            if(l10<24) return (num/1000000000000000000000).toFixed(2)+"s";
+            if(l10<27) return (num/1e24).toFixed(2)+"S";
+            if(l10<30) return (num/1e27).toFixed(2)+"O";
+            if(l10<33) return (num/1e30).toFixed(2)+"N";
+            if(l10<36) return (num/1e33).toFixed(2)+"D";
+            
+            return (num/1e33).toFixed(2)+"D";
+            
+            
+            
+            
+        }
+        // Parse the stats block into an object
+        function parseStats(text, category) {
+            // Local parseTower function (copy from towercalc.js)
+            function parseTower(s) {
+                s = s.trim();
+                var val = s.slice(0, -1);
+                var mult = s.slice(-1);
+                var value = parseFloat(val);
+                switch (mult) {
+                    case "k": value *= 1e3; break;
+                    case "K": value *= 1e3; break;
+                    case "M": value *= 1e6; break;
+                    case "B": value *= 1e9; break;
+                    case "T": value *= 1e12; break;
+                    case "q": value *= 1e15; break;
+                    case "Q": value *= 1e18; break;
+                    case "s": value *= 1e21; break;
+                    case "S": value *= 1e24; break;
+                    case "O": value *= 1e27; break;
+                    case "N": value *= 1e30; break;
+                    case "D": value *= 1e33; break;
+                }
+                return value;
+            }
+
+            // Parse time strings like "1h 23m 45s" to minutes
+            function parseTime(str) {
+                let min = 0;
+                let d = str.match(/(\d+)\s*d/);
+                let h = str.match(/(\d+)\s*h/);
+                let m = str.match(/(\d+)\s*m/);
+                let s = str.match(/(\d+)\s*s/);
+                if (d) min += parseInt(d[1], 10) * 60 * 24;
+                if (h) min += parseInt(h[1], 10) * 60;
+                if (m) min += parseInt(m[1], 10);
+                if (s) min += parseInt(s[1], 10) / 60;
+                return min;
+            }
+
+            function normalizeLabel(s) {
+                return String(s || "")
+                    .toLowerCase()
+                    .replace(/\s+/g, " ")
+                    .trim();
+            }
+
+            function parseNumericValue(raw) {
+                if (!raw) return null;
+                const cleaned = String(raw)
+                    .trim()
+                    .replace(/\$/g, "")
+                    .replace(/^x/i, "")
+                    .replace(/,/g, ".");
+
+                const m = cleaned.match(/^([+-]?\d+(?:\.\d+)?)([KMBTqQsSOND]?)$/);
+                if (!m) return null;
+
+                const n = m[1] + (m[2] || "");
+                if (/[KMBTqQsSOND]$/.test(n)) return parseTower(n);
+                return parseFloat(m[1]);
+            }
+
+            function mapKeyBySection(section, key) {
+                const k = normalizeLabel(key);
+                const s = normalizeLabel(section);
+
+                if (s === "damage") {
+                    const m = {
+                        "damage dealt": "Damage Dealt",
+                        "projectiles": "Projectiles Damage",
+                        "rend armor": "Rend Armor Damage",
+                        "death ray": "Death Ray Damage",
+                        "thorns": "Thorn Damage",
+                        "orbs": "Orb Damage",
+                        "land mines": "Land Mine Damage",
+                        "chain lightning": "Chain Lightning Damage",
+                        "smart missiles": "Smart Missile Damage",
+                        "inner land mines": "Inner Land Mine Damage",
+                        "poison swamp": "Swamp Damage",
+                        "death wave": "Death Wave Damage",
+                        "black hole": "Black Hole Damage",
+                        "flame bot": "Flame Bot Damage",
+                        "electrons": "Electrons Damage"
+                    };
+                    return m[k] || key;
+                }
+
+                if (s === "damage taken") {
+                    if (k === "tower") return "Damage Taken";
+                    if (k === "wall") return "Damage Taken Wall";
+                    return key;
+                }
+
+                if (s === "bonus health gained") {
+                    if (k === "from death wave") return "HP From Death Wave";
+                    return key;
+                }
+
+                if (s === "enemies hit by") {
+                    const m = {
+                        "projectiles": "Enemies Hit by Projectiles",
+                        "thorns": "Enemies Hit by Thorns",
+                        "orbs": "Enemies Hit by Orbs",
+                        "death ray": "Enemies Hit by Death Ray",
+                        "chain lightning": "Enemies Hit by Chain Lightning",
+                        "smart missiles": "Enemies Hit by Smart Missiles",
+                        "inner land mines": "Enemies Hit by Inner Land Mines",
+                        "poison swamp": "Enemies Hit by Poison Swamp",
+                        "death wave": "Tagged by Death Wave",
+                        "black hole": "Enemies Hit by Black Hole",
+                        "chrono field": "Enemies Hit by Chrono Field",
+                        "land mines": "Enemies Hit by Land Mines",
+                        "thunder bot": "Enemies Hit by Thunder Bot",
+                        "flame bot": "Enemies Hit by Flame Bot",
+                        "attack chip": "Enemies Hit by Attack Chip",
+                        "orbital augment": "Enemies Hit by Orbital Augment"
+                    };
+                    return m[k] || key;
+                }
+
+                if (s === "killed with effect active") {
+                    const m = {
+                        "golden tower": "Destroyed in Golden Tower",
+                        "death wave": "Tagged by Death Wave",
+                        "spotlight": "Destroyed in Spotlight",
+                        "amplify bot": "Destroyed in Amplify Bot",
+                        "golden bot": "Destroyed in Golden Bot",
+                        "death penalty": "Destroyed in Death Penalty"
+                    };
+                    return m[k] || key;
+                }
+
+                if (s === "enemies destroyed by") {
+                    const m = {
+                        "projectiles": "Destroyed by Projectiles",
+                        "thorns": "Destroyed by Thorns",
+                        "land mines": "Destroyed by Land Mine",
+                        "orbs": "Destroyed By Orbs",
+                        "chain lightning": "Destroyed by Chain Lightning",
+                        "smart missiles": "Destroyed by Smart Missiles",
+                        "inner land mines": "Destroyed by Inner Land Mines",
+                        "poison swamp": "Destroyed by Poison Swamp",
+                        "death ray": "Destroyed by Death Ray",
+                        "black hole": "Destroyed by Black Hole",
+                        "flame bot": "Destroyed by Flame Bot",
+                        "other": "Destroyed by Other"
+                    };
+                    return m[k] || key;
+                }
+
+                if (s === "coins") {
+                    const m = {
+                        "coin bonus upgrade": "Coins from Coin Upgrade",
+                        "golden tower": "Coins From Golden Tower",
+                        "death wave": "Coins From Death Wave",
+                        "spotlight": "Coins From Spotlight",
+                        "black hole": "Coins From Black Hole",
+                        "orbs": "Coins From Orb",
+                        "golden bot": "Golden Bot Coins Earned",
+                        "coins / wave": "Coins per Wave"
+                    };
+                    return m[k] || key;
+                }
+
+                if (s === "cash") {
+                    if (k === "golden tower") return "Cash From Golden Tower";
+                    return key;
+                }
+
+                return key;
+            }
+
+            const lines = text.split('\n').map(l => l.trim());
+            const stats = {};
+            let currentSection = "";
+            const debug = {
+                linesTotal: lines.length,
+                sections: [],
+                remappedKeys: [],
+                duplicateKeys: [],
+                unrecognizedLines: []
+            };
+            const sectionHeaders = new Set([
+                "battle report",
+                "records",
+                "combat",
+                "damage",
+                "damage taken",
+                "bonus health gained",
+                "health regenerated",
+                "damage blocked",
+                "utility",
+                "counts",
+                "enemies hit by",
+                "killed with effect active",
+                "total enemies",
+                "coins",
+                "cash",
+                "currencies",
+                "enemies destroyed",
+                "enemies destroyed by",
+                "bots",
+                "guardian"
+            ]);
+
+            for (const line of lines) {
+                if (!line) continue;
+
+                const normalizedLine = normalizeLabel(line);
+                if (sectionHeaders.has(normalizedLine)) {
+                    currentSection = line;
+                    if (!debug.sections.includes(currentSection)) debug.sections.push(currentSection);
+                    continue;
+                }
+
+                // Match: key (possibly multiple words) + value (number/unit or time)
+                const tiermatch = line.match(/^Tier\s+([0-9]+\+?)$/i);
+                const match = line.match(/^(.+?)\s+([\$xX]?[+-]?[0-9][0-9.,]*[KMBTqQsSOND]?)$/i);
+                const timeMatch = line.match(/^(Game Time|Real Time)\s*(.*)$/i);
+                const BattleDate = line.match(/^Battle Date\s*(.*)$/i);
+                const killedByMatch = line.match(/^Killed [bB]y\s*(.*)$/i);
+                if(BattleDate)
+                {
+                    try {
+                        const dt = BattleDate[1].replace('Okt', 'Oct').replace('Dez', 'Dec').replace('Mär', 'Mar').replace('Mai', 'May');
+                        stats['Date'] = new Date(dt).getTime();
+                    } catch(e) {
+                        stats['Date'] = Date.now();
+                        stats['DateO'] = BattleDate[1];
+                    }
+                }
+                else if(tiermatch)
+                {
+                    stats['Tier'] = tiermatch[1].trim();
+                    if(category=="Tournament" || category=="tournament")
+                        stats['Tier'] = stats['Tier'] + "+";
+                }
+                else if(timeMatch)
+                {
+                    let key = timeMatch[1].trim();
+                    let valueStr = timeMatch[2].trim();
+
+                    // handle Game time and Real time
+                    let value = parseTime(valueStr);
+                    stats[key] = value;
+
+                } 
+                else if (killedByMatch)
+                {
+                    // handle "Killed by"
+                    stats['Killed by'] = killedByMatch[1].trim();
+                }
+                else if (match) {
+                    const rawKey = match[1].trim();
+                    let key = mapKeyBySection(currentSection, rawKey);
+                    if (rawKey !== key) {
+                        debug.remappedKeys.push({
+                            section: currentSection || "(none)",
+                            from: rawKey,
+                            to: key
+                        });
+                    }
+                    const value = parseNumericValue(match[2]);
+                    if (value !== null && !isNaN(value)) {
+                        // Preserve both values when the same label appears in different sections.
+                        if (Object.prototype.hasOwnProperty.call(stats, key) && stats[key] !== value && currentSection) {
+                            const scopedKey = `${currentSection}: ${key}`;
+                            stats[scopedKey] = value;
+                            debug.duplicateKeys.push({
+                                section: currentSection,
+                                key,
+                                existingValue: stats[key],
+                                newValue: value,
+                                storedAs: scopedKey
+                            });
+                        } else {
+                            stats[key] = value;
+                        }
+                    }
+                }
+                else {
+                    debug.unrecognizedLines.push({ section: currentSection || "(none)", line });
+                    console.warn(`Unrecognized line format: ${line}`);
+                }
+            }
+
+            debug.parsedKeyCount = Object.keys(stats).length;
+            parserDebugState.last = debug;
+            renderParserDebugPanel();
+            return stats;
+        }
+
+        // Save stats to server via POST, now includes comment and category
+        function saveStatsToServer(stats, comment, category, callback) {
+            return;
+            fetch('data.php', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ time: stats.Date, stats, comment, category })
+            })
+            .then(res => res.json())
+            .then(data => { if (callback) callback(data); })
+            .catch(() => { if (callback) callback(null); });
+        }
+
+        // Load stats history from server via GET
+        function loadHistoryFromServer(callback) {
+            fetch('data.php')
+                .then(res => res.json())
+                .then(data => callback(Array.isArray(data) ? data : []))
+                .catch(() => callback([]));
+        }
+
+        // Show progress table
+        function showProgress(history) {
+            if (!history || history.length === 0) {
+                document.getElementById('progress').innerHTML = '<p>No progress saved yet.</p>';
+                return;
+            }
+            const keys = [
+                'Tier', 'Wave','Game Time',  'Coins Earned', 'Cells Earned','Total Enemies',
+                'Coins per day','Cells per day','RR per day', 'Comment'
+            ];
+            let html = '<table id="progressTable"><tr><th></th><th>Date</th>';
+            for (const key of keys) html += `<th>${key}</th>`;
+            html += '</tr>';
+            for (let i = 0; i < history.length; i++) {
+                const entry = history[i];
+                const date = new Date(entry.time).toLocaleString();
+                html += `<tr><td><input type="checkbox" class="compareCheck" data-index="${i}"></td><td>${date}</td>`;
+                for (const key of keys) {
+                    try {
+                        let val = towerNum(entry.stats[key]);
+                        html += `<td>${val}</td>`;
+                    } catch (e) {
+                        html += '<td>N/A</td>';
+                    }
+                }
+                html += '</tr>';
+            }
+            html += '</table>';
+            html += '<button id="compareBtn" style="margin-top:1em;">Compare Selected</button>';
+            html += '<div id="compareResult"></div>';
+            document.getElementById('progress').innerHTML = html;
+
+            document.getElementById('compareBtn').onclick = function() {
+                const checks = Array.from(document.querySelectorAll('.compareCheck')).filter(cb => cb.checked);
+                if (checks.length !== 2) {
+                    alert("Please select exactly two runs to compare.");
+                    return;
+                }
+                const idx1 = Number(checks[0].getAttribute('data-index'));
+                const idx2 = Number(checks[1].getAttribute('data-index'));
+                showComparisonTable(history[idx1], history[idx2]);
+            };
+        }
+
+        // Show the comparison table for two runs
+        function showComparisonTable(run1, run2) {
+            // Collect all unique stat keys
+            const allKeys = new Set();
+            Object.keys(run1.stats).forEach(k => allKeys.add(k));
+            Object.keys(run2.stats).forEach(k => allKeys.add(k));
+            const keys = Array.from(allKeys);
+
+            let html = `<h3>Comparison</h3>
+            <table style="margin-top:1em;">
+                <tr>
+                    <th>Stat</th>
+                    <th>${new Date(run1.time).toLocaleString()}</th>
+                    <th>${new Date(run2.time).toLocaleString()}</th>
+                    <th>Diff (%)</th>
+                </tr>`;
+            for (const key of keys) {
+                let v1 = run1.stats[key];
+                let v2 = run2.stats[key];
+                let diff = '';
+                // Only calculate % if both are numbers and not zero
+                if (typeof v1 === "number" && typeof v2 === "number" && (v1 !== 0 || v2 !== 0)) {
+                    if (v1 === 0 && v2 !== 0) {
+                        diff = "+∞";
+                    } else if (v1 !== 0) {
+                        diff = (((v2 - v1) / Math.abs(v1)) * 100).toFixed(2) + "%";
+                    } else {
+                        diff = "0%";
+                    }
+                }
+                // Format large numbers
+                v1 = towerNum(v1);
+                v2 = towerNum(v2);
+
+                html += `<tr>
+                    <td>${key}</td>
+                    <td>${v1 !== undefined ? v1 : ''}</td>
+                    <td>${v2 !== undefined ? v2 : ''}</td>
+                    <td>${diff}</td>
+                </tr>`;
+            }
+            html += "</table>";
+            document.getElementById('compareResult').innerHTML = html;
+        }
+
+        // Chart keys to plot (label, stat key)
+        const chartKeys = [
+            { label: "Wave", key: "Wave" },
+            { label: "Tier", key: "Tier" },
+            { label: "Coins Earned", key: "Coins Earned" },
+            { label: "Cells Earned", key: "Cells Earned" },
+            { label: "Coins per day", key: "Coins per day" },
+            { label: "Cells per day", key: "Cells per day" },
+            { label: "RR per day", key: "RR per day" },
+        ];
+
+        const customChartSelection = {
+            primary: null,
+            secondary: null
+        };
+
+        function getNumericChartProperties(history) {
+            const keys = new Set();
+            history.forEach(entry => {
+                const stats = entry && entry.stats ? entry.stats : {};
+                Object.keys(stats).forEach(key => {
+                    const value = stats[key];
+                    if (typeof value === "number" && !isNaN(value)) keys.add(key);
+                });
+            });
+            return Array.from(keys).sort((a, b) => a.localeCompare(b, undefined, { numeric: true, sensitivity: "base" }));
+        }
+
+        function ensureCustomChartSelection(keys) {
+            if (!keys || keys.length === 0) {
+                customChartSelection.primary = null;
+                customChartSelection.secondary = null;
+                return;
+            }
+
+            if (!customChartSelection.primary || !keys.includes(customChartSelection.primary)) {
+                customChartSelection.primary = keys[0];
+            }
+
+            if (!customChartSelection.secondary || !keys.includes(customChartSelection.secondary)) {
+                customChartSelection.secondary = keys[1] || keys[0];
+            }
+
+            if (customChartSelection.secondary === customChartSelection.primary) {
+                const alternative = keys.find(k => k !== customChartSelection.primary);
+                customChartSelection.secondary = alternative || customChartSelection.primary;
+            }
+        }
+
+        function renderCustomDualAxisChart(targetElement, history, primaryKey, secondaryKey) {
+            const container = d3.select(targetElement);
+            container.html("");
+
+            if (!primaryKey || !secondaryKey) {
+                container.append("p").text("No numeric properties available for custom chart.");
+                return;
+            }
+
+            const data = history
+                .map(entry => ({
+                    date: new Date(entry.time),
+                    primary: Number(entry.stats[primaryKey]),
+                    secondary: Number(entry.stats[secondaryKey])
+                }))
+                .filter(d => d.date instanceof Date && !isNaN(d.date.getTime()));
+
+            if (data.length < 2) {
+                container.append("p").text("Not enough filtered runs for custom chart.");
+                return;
+            }
+
+            const primaryData = data.filter(d => Number.isFinite(d.primary));
+            const secondaryData = data.filter(d => Number.isFinite(d.secondary));
+
+            if (primaryData.length === 0 || secondaryData.length === 0) {
+                container.append("p").text("Selected properties do not have numeric values in current filter.");
+                return;
+            }
+
+            const width = 900;
+            const height = 320;
+            const margin = { top: 24, right: 70, bottom: 40, left: 70 };
+
+            const svg = container
+                .append("svg")
+                .attr("width", width)
+                .attr("height", height);
+
+            const x = d3.scaleTime()
+                .domain(d3.extent(data, d => d.date))
+                .range([margin.left, width - margin.right]);
+
+            const yPrimary = d3.scaleLinear()
+                .domain(d3.extent(primaryData, d => d.primary))
+                .nice()
+                .range([height - margin.bottom, margin.top]);
+
+            const ySecondary = d3.scaleLinear()
+                .domain(d3.extent(secondaryData, d => d.secondary))
+                .nice()
+                .range([height - margin.bottom, margin.top]);
+
+            const primaryColor = "#0074d9";
+            const secondaryColor = "#ff4136";
+
+            const primaryLine = d3.line()
+                .defined(d => Number.isFinite(d.primary))
+                .x(d => x(d.date))
+                .y(d => yPrimary(d.primary));
+
+            const secondaryLine = d3.line()
+                .defined(d => Number.isFinite(d.secondary))
+                .x(d => x(d.date))
+                .y(d => ySecondary(d.secondary));
+
+            svg.append("g")
+                .attr("transform", `translate(0,${height - margin.bottom})`)
+                .call(d3.axisBottom(x).ticks(6));
+
+            svg.append("g")
+                .attr("transform", `translate(${margin.left},0)`)
+                .call(d3.axisLeft(yPrimary).ticks(6).tickFormat(d => towerNum(d)))
+                .call(g => g.selectAll("text").attr("fill", primaryColor));
+
+            svg.append("g")
+                .attr("transform", `translate(${width - margin.right},0)`)
+                .call(d3.axisRight(ySecondary).ticks(6).tickFormat(d => towerNum(d)))
+                .call(g => g.selectAll("text").attr("fill", secondaryColor));
+
+            svg.append("path")
+                .datum(data)
+                .attr("fill", "none")
+                .attr("stroke", primaryColor)
+                .attr("stroke-width", 2)
+                .attr("d", primaryLine);
+
+            svg.append("path")
+                .datum(data)
+                .attr("fill", "none")
+                .attr("stroke", secondaryColor)
+                .attr("stroke-width", 2)
+                .attr("d", secondaryLine);
+
+            svg.selectAll("circle.primary-point")
+                .data(primaryData)
+                .join("circle")
+                .attr("class", "primary-point")
+                .attr("cx", d => x(d.date))
+                .attr("cy", d => yPrimary(d.primary))
+                .attr("r", 2.5)
+                .attr("fill", primaryColor);
+
+            svg.selectAll("circle.secondary-point")
+                .data(secondaryData)
+                .join("circle")
+                .attr("class", "secondary-point")
+                .attr("cx", d => x(d.date))
+                .attr("cy", d => ySecondary(d.secondary))
+                .attr("r", 2.5)
+                .attr("fill", secondaryColor);
+
+            const legend = svg.append("g")
+                .attr("transform", `translate(${margin.left},${margin.top - 8})`);
+
+            legend.append("text")
+                .attr("x", 0)
+                .attr("y", 0)
+                .attr("fill", primaryColor)
+                .attr("font-size", "12px")
+                .text(`Primary Y: ${primaryKey}`);
+
+            legend.append("text")
+                .attr("x", 230)
+                .attr("y", 0)
+                .attr("fill", secondaryColor)
+                .attr("font-size", "12px")
+                .text(`Secondary Y: ${secondaryKey}`);
+        }
+
+        function renderRatioPropertiesChart(targetElement, history) {
+            const container = d3.select(targetElement);
+            container.html("");
+
+            const ratioKeys = Array.from(new Set(
+                history.flatMap(entry => Object.keys(entry.stats || {}))
+            ))
+                .filter(key => /^Ratio\s+/i.test(key))
+                .sort((a, b) => a.localeCompare(b, undefined, { numeric: true, sensitivity: "base" }));
+
+            if (ratioKeys.length === 0) {
+                container.append("p").text("No Ratio properties available in current filter.");
+                return;
+            }
+
+            const data = history
+                .map(entry => ({
+                    date: new Date(entry.time),
+                    values: ratioKeys.reduce((acc, key) => {
+                        acc[key] = Number(entry.stats[key]);
+                        return acc;
+                    }, {})
+                }))
+                .filter(d => d.date instanceof Date && !isNaN(d.date.getTime()));
+
+            if (data.length < 2) {
+                container.append("p").text("Not enough filtered runs for Ratio chart.");
+                return;
+            }
+
+            const series = ratioKeys.map(key => ({
+                key,
+                points: data
+                    .map(d => ({ date: d.date, value: d.values[key] }))
+                    .filter(p => Number.isFinite(p.value))
+            })).filter(s => s.points.length >= 2);
+
+            if (series.length === 0) {
+                container.append("p").text("Ratio properties have no numeric values in current filter.");
+                return;
+            }
+
+            const allValues = series.flatMap(s => s.points.map(p => p.value));
+            const maxValue = d3.max(allValues);
+
+            const width = 950;
+            const height = 340;
+            const margin = { top: 24, right: 230, bottom: 40, left: 70 };
+
+            const svg = container
+                .append("svg")
+                .attr("width", width)
+                .attr("height", height);
+
+            const x = d3.scaleTime()
+                .domain(d3.extent(data, d => d.date))
+                .range([margin.left, width - margin.right]);
+
+            const y = d3.scaleLinear()
+                .domain([0, Math.max(5, maxValue || 0)])
+                .nice()
+                .range([height - margin.bottom, margin.top]);
+
+            const color = d3.scaleOrdinal()
+                .domain(series.map(s => s.key))
+                .range(d3.schemeTableau10.concat(d3.schemeSet3));
+
+            const line = d3.line()
+                .defined(d => Number.isFinite(d.value))
+                .x(d => x(d.date))
+                .y(d => y(d.value));
+
+            svg.append("g")
+                .attr("transform", `translate(0,${height - margin.bottom})`)
+                .call(d3.axisBottom(x).ticks(6));
+
+            svg.append("g")
+                .attr("transform", `translate(${margin.left},0)`)
+                .call(d3.axisLeft(y).ticks(6).tickFormat(d => `${d}%`));
+
+            svg.selectAll("path.ratio-line")
+                .data(series)
+                .join("path")
+                .attr("class", "ratio-line")
+                .attr("fill", "none")
+                .attr("stroke", d => color(d.key))
+                .attr("stroke-width", 2)
+                .attr("d", d => line(d.points));
+
+            const legend = svg.append("g")
+                .attr("transform", `translate(${width - margin.right + 18},${margin.top})`);
+
+            series.forEach((s, i) => {
+                legend.append("rect")
+                    .attr("x", 0)
+                    .attr("y", i * 18)
+                    .attr("width", 12)
+                    .attr("height", 12)
+                    .attr("fill", color(s.key));
+
+                legend.append("text")
+                    .attr("x", 18)
+                    .attr("y", i * 18 + 10)
+                    .style("font-size", "12px")
+                    .text(s.key);
+            });
+        }
+
+        function showCharts(history) {
+            const container = d3.select("#charts");
+            container.html(""); // Clear previous
+            if (!history || history.length < 2) {
+                container.append("p").text("Not enough data for charts.");
+                return;
+            }
+            chartKeys.forEach(({ label, key }) => {
+                const data = history
+                    .map(d => ({
+                        date: new Date(d.time),
+                        value: d.stats[key]
+                    }))
+                    .filter(d => typeof d.value === "number" && !isNaN(d.value));
+                if (data.length < 2) return;
+                const width = 400, height = 200, margin = { top: 20, right: 20, bottom: 30, left: 50 };
+                const svg = container.append("div")
+                    .attr("class", "d3-chart")
+                    .append("svg")
+                    .attr("width", width)
+                    .attr("height", height);
+                const x = d3.scaleTime()
+                    .domain(d3.extent(data, d => d.date))
+                    .range([margin.left, width - margin.right]);
+                const y = d3.scaleLinear()
+                    .domain([d3.min(data, d => d.value), d3.max(data, d => d.value)]).nice()
+                    .range([height - margin.bottom, margin.top]);
+                const line = d3.line()
+                    .x(d => x(d.date))
+                    .y(d => y(d.value));
+                svg.append("g")
+                    .attr("transform", `translate(0,${height - margin.bottom})`)
+                    .call(d3.axisBottom(x).ticks(5));
+                svg.append("g")
+                    .attr("transform", `translate(${margin.left},0)`)
+                    .call(d3.axisLeft(y).ticks(5).tickFormat(d => towerNum(d)));
+                svg.append("path")
+                    .datum(data)
+                    .attr("fill", "none")
+                    .attr("stroke", "#0074d9")
+                    .attr("stroke-width", 2)
+                    .attr("d", line);
+                svg.append("text")
+                    .attr("x", width / 2)
+                    .attr("y", margin.top)
+                    .attr("text-anchor", "middle")
+                    .attr("font-size", "14px")
+                    .attr("font-weight", "bold")
+                    .text(label);
+            });
+
+            container.append("h3").text("Ratio Properties (Current Filter)");
+            const ratioChartTarget = container.append("div")
+                .attr("class", "d3-chart");
+            renderRatioPropertiesChart(ratioChartTarget.node(), history);
+
+            container.append("h3").text("Custom Dual-Axis Chart");
+
+            const numericKeys = getNumericChartProperties(history);
+            ensureCustomChartSelection(numericKeys);
+
+            const controls = container.append("div")
+                .style("margin", "0.5em 0")
+                .style("display", "flex")
+                .style("gap", "12px")
+                .style("align-items", "center")
+                .style("flex-wrap", "wrap");
+
+            controls.append("label")
+                .attr("for", "customChartPrimary")
+                .text("Primary Y:");
+
+            const primarySelect = controls.append("select")
+                .attr("id", "customChartPrimary");
+
+            controls.append("label")
+                .attr("for", "customChartSecondary")
+                .text("Secondary Y:");
+
+            const secondarySelect = controls.append("select")
+                .attr("id", "customChartSecondary");
+
+            primarySelect.selectAll("option")
+                .data(numericKeys)
+                .join("option")
+                .attr("value", d => d)
+                .text(d => d);
+
+            secondarySelect.selectAll("option")
+                .data(numericKeys)
+                .join("option")
+                .attr("value", d => d)
+                .text(d => d);
+
+            primarySelect.property("value", customChartSelection.primary || "");
+            secondarySelect.property("value", customChartSelection.secondary || "");
+
+            const customChartTarget = container.append("div")
+                .attr("class", "d3-chart");
+
+            function drawCustomChart() {
+                renderCustomDualAxisChart(
+                    customChartTarget.node(),
+                    history,
+                    customChartSelection.primary,
+                    customChartSelection.secondary
+                );
+            }
+
+            primarySelect.on("change", function() {
+                customChartSelection.primary = this.value;
+                if (customChartSelection.primary === customChartSelection.secondary) {
+                    const alt = numericKeys.find(k => k !== customChartSelection.primary);
+                    if (alt) {
+                        customChartSelection.secondary = alt;
+                        secondarySelect.property("value", alt);
+                    }
+                }
+                drawCustomChart();
+            });
+
+            secondarySelect.on("change", function() {
+                customChartSelection.secondary = this.value;
+                if (customChartSelection.secondary === customChartSelection.primary) {
+                    const alt = numericKeys.find(k => k !== customChartSelection.secondary);
+                    if (alt) {
+                        customChartSelection.primary = alt;
+                        primarySelect.property("value", alt);
+                    }
+                }
+                drawCustomChart();
+            });
+
+            drawCustomChart();
+        }
+
+        // Show all stats table, now includes comment and category columns
+function showAllStatsTable(history, selectedGroup = 'all') {
+    if (!history || history.length === 0) {
+        // Add a new div if not present
+        if (!document.getElementById('allStats')) {
+            const div = document.createElement('div');
+            div.id = 'allStats';
+            document.body.appendChild(div);
+        }
+        document.getElementById('allStats').innerHTML = '<p>No data available.</p>';
+        return;
+    }
+    // Collect all unique stat keys
+    const allKeys = new Set();
+    history.forEach(entry => {
+        Object.keys(entry.stats).forEach(k => allKeys.add(k));
+    });
+
+    // Define stat groups with explicit known stat keys (start with obvious ones)
+    const statGroups = {
+        coins: {
+            label: 'Coins / Cash',
+            keys: [
+                'Coins Earned', 'Coins earned', 'Coins per hour', 'Coins per day', 'Coins per day',
+                'Coins From Black Hole', 'Coins From Golden Tower', 'Coins From Death Wave', 'Coins From Spotlight', 'Coins From Orb',
+                'Coins from Coin Bonuses', 'Coins from Coin Upgrade', 'Coins Fetched', 'Coins from Blackhole',
+                'Cash Earned', 'Cash From Golden Tower', 'Cash earned', 'Golden Bot Coins Earned', 'Golden Bot Coins Earned'
+            ],
+            patterns: [/coins/i, /cash/i]
+        },
+        damage: {
+            label: 'Damage',
+            keys: [
+                'Damage', 'Damage dealt', 'Damage Dealt', 'Damage Gain From Berserk', 'Projectiles Damage', 'Projectiles Damage',
+                'Orb Damage', 'Thorn damage', 'Thorn Damage', 'Rend Armor Damage', 'Death Wave Damage', 'Black Hole Damage',
+                'Chain Lightning Damage', 'Smart Missile Damage', 'Inner Land Mine Damage', 'Land Mine Damage', 'Death Ray Damage', 'Flame Bot Damage'
+            ],
+            patterns: [/damage/i]
+        },
+        enemy: {
+            label: 'Enemy Counts',
+            keys: [
+                'Total Enemies', 'Total Elites', 'Basic', 'Fast', 'Tank', 'Ranged', 'Boss', 'Protector',
+                'Vampires', 'Rays', 'Scatters', 'Saboteur', 'Saboteurs', 'Commander', 'Overcharge'
+            ],
+            patterns: [/total enemies/i, /basic/i, /fast/i]
+        },
+        modules: {
+            label: 'Modules / Shards',
+            keys: [
+                'Reroll Shards', 'Reroll Shards Earned', 'Cannon Shards', 'Armor Shards', 'Generator Shards', 'Core Shards', 'Common Modules', 'Rare Modules'
+            ],
+            patterns: [/shard/i, /module/i]
+        },
+        misc: {
+            label: 'Other',
+            keys: [],
+            patterns: []
+        }
+    };
+
+    function categorizeKey(key) {
+        // Check explicit lists first
+        for (const [g, def] of Object.entries(statGroups)) {
+            if (def.keys && def.keys.some(k => String(k).toLowerCase() === String(key).toLowerCase())) return g;
+        }
+        // Fallback to pattern matching
+        for (const [g, def] of Object.entries(statGroups)) {
+            if (def.patterns) {
+                for (const pat of def.patterns) {
+                    try {
+                        if (pat.test(key)) return g;
+                    } catch (e) { }
+                }
+            }
+        }
+        return 'misc';
+    }
+
+    function groupAndSortKeys(keys) {
+        const buckets = {};
+        keys.forEach(k => {
+            const g = categorizeKey(k);
+            if (!buckets[g]) buckets[g] = [];
+            buckets[g].push(k);
+        });
+        // Sort within groups: prefer natural order for numbers / known keys, otherwise alphabetical
+        for (const g of Object.keys(buckets)) {
+            buckets[g].sort((a, b) => a.localeCompare(b, undefined, { numeric: true, sensitivity: 'base' }));
+        }
+        // Order groups: coins, damage, enemy, modules, misc
+        const order = ['coins', 'damage', 'enemy', 'modules', 'misc'];
+        const result = [];
+        order.forEach(g => {
+            if (buckets[g]) result.push(...buckets[g]);
+        });
+        // Add any other unexpected groups at the end
+        Object.keys(buckets).forEach(g => {
+            if (!order.includes(g)) result.push(...buckets[g]);
+        });
+        return result;
+    }
+
+    let keys = groupAndSortKeys(Array.from(allKeys));
+    if (selectedGroup && selectedGroup !== 'all') {
+        // Keep only keys that belong to the selected group
+        keys = keys.filter(k => categorizeKey(k) === selectedGroup);
+    }
+
+    // Build legend and table HTML
+    // Build clickable legend/buttons
+    let legendHtml = '<div id="statGroupButtons" style="margin-bottom:0.5em;">';
+    legendHtml += `<span class="stat-group-btn ${selectedGroup==='all' ? 'active' : ''}" data-group="all"><strong>All</strong></span>`;
+    for (const [id, def] of Object.entries(statGroups)) {
+        legendHtml += `<span class="stat-group-btn ${selectedGroup===id ? 'active' : ''}" data-group="${id}"><strong>${def.label}</strong></span>`;
+    }
+    legendHtml += '</div>';
+
+    // Build table with thead/tbody so header can be fixed while body scrolls
+    let html = '<h2>All Stats Table</h2>' + legendHtml +
+        '<div class="all-stats-wrap"><table class="all-stats-table">';
+
+    // Header
+    html += '<thead><tr><th>Date</th>';
+    for (const key of keys) html += `<th>${key}</th>`;
+    html += '<th>Comment</th><th>Category</th></tr></thead>';
+
+    // Body
+    html += '<tbody>';
+    for (const entry of history) {
+        const date = new Date(entry.time).toLocaleString();
+        html += `<tr><td>${date}</td>`;
+        for (const key of keys) {
+            let val = entry.stats[key];
+            if (typeof val === "number") val = towerNum(val);
+            if (val === undefined) val = '';
+            html += `<td>${val}</td>`;
+        }
+        html += `<td>${entry.comment ? entry.comment : ''}</td>`;
+        html += `<td>${entry.category ? entry.category : 'farming'}</td>`;
+        html += '</tr>';
+    }
+    html += '</tbody>';
+    html += '</table></div>';
+
+    // Add a new div if not present
+    if (!document.getElementById('allStats')) {
+        const div = document.createElement('div');
+        div.id = 'allStats';
+        document.body.appendChild(div);
+    }
+    document.getElementById('allStats').innerHTML = html;
+
+    // Wire up click handlers for group buttons to re-render the table with selected group
+    const btnContainer = document.getElementById('statGroupButtons');
+    if (btnContainer) {
+        Array.from(btnContainer.querySelectorAll('.stat-group-btn')).forEach(btn => {
+            btn.onclick = function() {
+                const g = this.getAttribute('data-group');
+                // re-render table with selected group
+                showAllStatsTable(history, g);
+                // scroll top of table into view
+                document.getElementById('allStats').scrollIntoView({ behavior: 'smooth' });
+            };
+        });
+    }
+}
+
+// New function to show damage distribution stacked/grouped
+function showDamageStackedGrouped(history) {
+    // 1. Find all damage keys (case-insensitive, contains "damage")
+    const damageKeys = new Set();
+    history.forEach(entry => {
+        Object.keys(entry.stats).forEach(k => {
+            if (/damage/i.test(k)
+                && !['Damage dealt', 'Damage'].includes(k) // Exclude total damage keys
+                && !k.includes('Taken') 
+                && !k.includes('Gain') 
+                && !k.includes('Flame') 
+        
+            )
+            damageKeys.add(k);
+
+            
+        });
+    });
+    const keys = Array.from(damageKeys);
+    if (keys.length < 2) return; // Need at least 2 types for stacking
+
+    // 2. Prepare data: for each run, get date and all damage values
+    const data = history.map(entry => {
+        const total = keys.reduce((sum, k) => sum + (Number(entry.stats[k]) || 0), 0);
+        const obj = { date: new Date(entry.time) };
+        keys.forEach(k => {
+            obj[k] = total > 0 ? (Number(entry.stats[k]) || 0) / total : 0;
+        });
+        return obj;
+    });
+
+    // 3. D3 stack layout
+    const container = d3.select("#charts");
+    container.append("h3").text("Damage Distribution (Stacked/Grouped % of Total Damage)");
+
+
+    const legendWidth = 160;
+    const width = 800 + legendWidth, height = 300, margin = { top: 30, right: 20, bottom: 40, left: 60 };
+    const chartWidth = width - legendWidth - margin.right;
+
+    const svg = container.append("div")
+        .attr("class", "d3-chart")
+        .append("svg")
+        .attr("width", width)
+        .attr("height", height);
+
+    // X scale: runs (date)
+    const x0 = d3.scaleBand()
+        .domain(data.map(d => d.date))
+        .range([margin.left, chartWidth])
+        .paddingInner(0.1);
+
+    // X1 for grouped
+    const x1 = d3.scaleBand()
+        .domain(keys)
+        .range([0, x0.bandwidth()])
+        .padding(0.05);
+
+    // Y scale: percent
+    const y = d3.scaleLinear()
+        .domain([0, 1])
+        .range([height - margin.bottom, margin.top]);
+
+    // Color
+    const color = d3.scaleOrdinal()
+        .domain(keys)
+        .range(d3.schemePaired);
+
+    // Stack generator
+    const stack = d3.stack()
+        .keys(keys)
+        .order(d3.stackOrderNone)
+        .offset(d3.stackOffsetNone);
+
+    const series = stack(data);
+
+    // Draw stacked bars (default)
+    svg.selectAll("g.damageStack")
+        .data(series)
+        .join("g")
+        .attr("class", "damageStack")
+        .attr("fill", d => color(d.key))
+        .selectAll("rect")
+        .data(d => d)
+        .join("rect")
+        .attr("x", (d, i) => x0(data[i].date))
+        .attr("y", d => y(d[1]))
+        .attr("height", d => y(d[0]) - y(d[1]))
+        .attr("width", x0.bandwidth());
+
+    // X axis
+    svg.append("g")
+        .attr("transform", `translate(0,${height - margin.bottom})`)
+        .call(d3.axisBottom(x0).tickFormat(d3.timeFormat("%m/%d %H:%M")).ticks(6))
+        .selectAll("text")
+        .attr("transform", "rotate(30)")
+        .style("text-anchor", "start");
+
+    // Y axis
+    svg.append("g")
+        .attr("transform", `translate(${margin.left},0)`)
+        .call(d3.axisLeft(y).tickFormat(d3.format(".0%")));
+
+    // Legend (now to the right of the chart area)
+    const legend = svg.append("g")
+        .attr("transform", `translate(${chartWidth + 30},${margin.top})`);
+    keys.forEach((k, i) => {
+        legend.append("rect")
+            .attr("x", 0)
+            .attr("y", i * 18)
+            .attr("width", 16)
+            .attr("height", 16)
+            .attr("fill", color(k));
+        legend.append("text")
+            .attr("x", 22)
+            .attr("y", i * 18 + 13)
+            .text(k)
+            .style("font-size", "13px");
+    });
+
+    // Toggle button for grouped/stacked
+    let grouped = false;
+    const btn = container.append("button")
+        .text("Switch to Grouped")
+        .style("margin-bottom", "1em")
+        .on("click", function() {
+            grouped = !grouped;
+            d3.select(this).text(grouped ? "Switch to Stacked" : "Switch to Grouped");
+            if (grouped) {
+                // Grouped bars
+                svg.selectAll("g.damageStack").selectAll("rect")
+                    .transition()
+                    .duration(600)
+                    .attr("x", (d, i, nodes) => {
+                        const key = d3.select(nodes[i].parentNode).datum().key;
+                        return x0(data[i].date) + x1(key);
+                    })
+                    .attr("width", x1.bandwidth())
+                    .attr("y", d => y(d[1] - d[0]))
+                    .attr("height", d => y(0) - y(d[1] - d[0]));
+            } else {
+                // Stacked bars
+                svg.selectAll("g.damageStack").selectAll("rect")
+                    .transition()
+                    .duration(600)
+                    .attr("x", (d, i) => x0(data[i].date))
+                    .attr("width", x0.bandwidth())
+                    .attr("y", d => y(d[1]))
+                    .attr("height", d => y(d[0]) - y(d[1]));
+            }
+        });
+}
+
+// New function to show enemy distribution stacked/grouped
+function showEnemyStackedGrouped(history) {
+    // Define the enemy keys to use (order matters for legend/colors)
+    const keys = [
+        "Basic", "Fast", "Tank", "Ranged", "Boss", "Protector", "Total Elites",
+        "Vampires", "Rays", "Scatters", "Saboteur", "Commander", "Overcharge"
+    ];
+
+    // Prepare data: for each run, get date and all enemy values as percent of Total Enemies
+    const data = history.map(entry => {
+        const total = Number(entry.stats["Total Enemies"]) || 0;
+        const obj = { date: new Date(entry.time) };
+        keys.forEach(k => {
+            obj[k] = total > 0 ? (Number(entry.stats[k]) || 0) / total : 0;
+        });
+        return obj;
+    });
+
+    // D3 stack layout
+    const container = d3.select("#charts");
+    container.append("h3").text("Enemy Types Distribution (Stacked/Grouped % of Total Enemies)");
+
+    const legendWidth = 180;
+    const width = 800 + legendWidth, height = 300, margin = { top: 30, right: 20, bottom: 40, left: 60 };
+    const chartWidth = width - legendWidth - margin.right;
+
+    const svg = container.append("div")
+        .attr("class", "d3-chart")
+        .append("svg")
+        .attr("width", width)
+        .attr("height", height);
+
+    // X scale: runs (date)
+    const x0 = d3.scaleBand()
+        .domain(data.map(d => d.date))
+        .range([margin.left, chartWidth])
+        .paddingInner(0.1);
+
+    // X1 for grouped
+    const x1 = d3.scaleBand()
+        .domain(keys)
+        .range([0, x0.bandwidth()])
+        .padding(0.05);
+
+    // Y scale: percent
+    const y = d3.scaleLinear()
+        .domain([0, 1])
+        .range([height - margin.bottom, margin.top]);
+
+    // Color
+    const color = d3.scaleOrdinal()
+        .domain(keys)
+        .range(d3.schemeSet3);
+
+    // Stack generator
+    const stack = d3.stack()
+        .keys(keys)
+        .order(d3.stackOrderNone)
+        .offset(d3.stackOffsetNone);
+
+    const series = stack(data);
+
+    // Draw stacked bars (default)
+    svg.selectAll("g.enemyStack")
+        .data(series)
+        .join("g")
+        .attr("class", "enemyStack")
+        .attr("fill", d => color(d.key))
+        .selectAll("rect")
+        .data(d => d)
+        .join("rect")
+        .attr("x", (d, i) => x0(data[i].date))
+        .attr("y", d => y(d[1]))
+        .attr("height", d => y(d[0]) - y(d[1]))
+        .attr("width", x0.bandwidth());
+
+    // X axis
+    svg.append("g")
+        .attr("transform", `translate(0,${height - margin.bottom})`)
+        .call(d3.axisBottom(x0).tickFormat(d3.timeFormat("%m/%d %H:%M")).ticks(6))
+        .selectAll("text")
+        .attr("transform", "rotate(30)")
+        .style("text-anchor", "start");
+
+    // Y axis
+    svg.append("g")
+        .attr("transform", `translate(${margin.left},0)`)
+        .call(d3.axisLeft(y).tickFormat(d3.format(".0%")));
+
+    // Legend (to the right of the chart area)
+    const legend = svg.append("g")
+        .attr("transform", `translate(${chartWidth + 30},${margin.top})`);
+    keys.forEach((k, i) => {
+        legend.append("rect")
+            .attr("x", 0)
+            .attr("y", i * 18)
+            .attr("width", 16)
+            .attr("height", 16)
+            .attr("fill", color(k));
+        legend.append("text")
+            .attr("x", 22)
+            .attr("y", i * 18 + 13)
+            .text(k)
+            .style("font-size", "13px");
+    });
+
+    // Toggle button for grouped/stacked
+    let grouped = false;
+    const btn = container.append("button")
+        .text("Switch to Grouped")
+        .style("margin-bottom", "1em")
+        .on("click", function() {
+            grouped = !grouped;
+            d3.select(this).text(grouped ? "Switch to Stacked" : "Switch to Grouped");
+            if (grouped) {
+                // Grouped bars
+                svg.selectAll("g.enemyStack").selectAll("rect")
+                    .transition()
+                    .duration(600)
+                    .attr("x", (d, i, nodes) => {
+                        const key = d3.select(nodes[i].parentNode).datum().key;
+                        return x0(data[i].date) + x1(key);
+                    })
+                    .attr("width", x1.bandwidth())
+                    .attr("y", d => y(d[1] - d[0]))
+                    .attr("height", d => y(0) - y(d[1] - d[0]));
+            } else {
+                // Stacked bars
+                svg.selectAll("g.enemyStack").selectAll("rect")
+                    .transition()
+                    .duration(600)
+                    .attr("x", (d, i) => x0(data[i].date))
+                    .attr("width", x0.bandwidth())
+                    .attr("y", d => y(d[1]))
+                    .attr("height", d => y(d[0]) - y(d[1]));
+            }
+        });
+}
+function normalizeHistoryKeysOneTime(history) {
+
+    // Add common manual mappings where only casing or small wording changes exist
+    const manual = {
+        'Coins earned': 'Coins Earned',
+        'Cash earned': 'Cash Earned',
+        'Coins from Blackhole': 'Coins From Black Hole',
+        'Coins from Orbs': 'Coins From Orb',
+        'Damage Dealt': 'Damage dealt',
+        'Coins Stolen': 'Guardian coins stolen',
+        'Orb Hits': 'Enemies Hit by Orbs',
+        'Thorn Damage': 'Thorn damage',
+        'Destroyed by Death ray': 'Destroyed by Death Ray',
+        'Coins from Golden Tower': 'Coins From Golden Tower',
+        'Overcharges': 'Overcharge',
+        'Saboteurs': 'Saboteur',
+        'Commanders': 'Commander',
+        'Interest earned': 'Interest Earned',
+        'Coins from Death Wave': 'Coins From Death Wave',
+        'Coins from Spotlight': 'Coins From Spotlight',
+        'Flame bot damage': 'Flame Bot Damage',
+        'Cash from Golden Tower': 'Cash From Golden Tower',
+        'Thunder bot stuns': 'Thunder Bot Stuns',
+        'Golden bot coins earned': 'Golden Bot Coins Earned',
+        //'Guardian catches': 'Guardian Catches',
+        'Destroyed by Orbs': 'Destroyed By Orbs',
+        'Tagged by Death Wave': 'Tagged by Deathwave',
+        'Summoned enemies':	'Summoned Enemies',
+        'Coins from Coin Bonuses': 'Coins From Coin Bonuses',
+        'Coins per hour': 'Coins Per Hour',		        
+    };
+
+	var lastDate = undefined;
+    history.forEach(entry => {
+        const s = entry.stats || {};
+		if(!(entry.time>1000)) 
+			entry.time = lastDate; 
+		else lastDate = entry.time + 36000;
+		
+        for (const [oldKey, newKey] of Object.entries(manual)) {
+            if (s.hasOwnProperty(oldKey)) {
+                // prefer existing newKey if present
+                if (!s.hasOwnProperty(newKey)) s[newKey] = s[oldKey];
+                delete s[oldKey];
+            }
+        }
+    });
+	
+}
+
+
+function AddCalculatedValues(history)
+{
+    history.forEach(entry => {
+
+        entry.stats["Total Elites"] = (entry.stats["Vampires"] || 0) + (entry.stats["Rays"] || 0) + (entry.stats["Scatters"] || 0) + (entry.stats["Saboteur"] || 0) + (entry.stats["Commander"] || 0) + (entry.stats["Overcharge"] || 0);
+
+        let w = entry.stats['Wave'] || 0;
+        let c = entry.stats['Cells Earned'] || 0;
+        let s = entry.stats['Waves Skipped'] || 0;
+        let e = entry.stats['Total Elites'] || 0;
+        let t = parseInt(entry.stats['Tier']) || 0;
+
+        let basic_cells = e * (t + 1) / 2 * wspluscells; // each elite gives (tier+1)/2 basic cells
+        let skipbonus = s / (w - s) * 1.1 + 1; // 10% bonus for wave skipped
+        let val = (c / (basic_cells * skipbonus)); 
+
+        entry.stats['Death wave multiplier'] = val;
+
+        entry.stats["RR per day"] = (entry.stats["Reroll Shards Earned"] / entry.stats["Real Time"] * 60 * 24);
+        entry.stats["Cells per day"] = (entry.stats["Cells Earned"] / entry.stats["Real Time"] * 60 * 24);
+        entry.stats["Coins per day"] = (entry.stats["Coins Earned"] / entry.stats["Real Time"] * 60 * 24);
+
+
+        entry.stats["Ratio Orb Destroy"] = (entry.stats["Destroyed By Orbs"] && entry.stats["Total Enemies"]) ? (entry.stats["Destroyed By Orbs"] / entry.stats["Total Enemies"]*100) : 0;
+        entry.stats["Ratio Orb Hit"] = (entry.stats["Enemies Hit by Orbs"] && entry.stats["Total Enemies"]) ? (entry.stats["Enemies Hit by Orbs"] / entry.stats["Total Enemies"]*100) : 0;
+        entry.stats["Ratio Spotlight"] = (entry.stats["Destroyed in Spotlight"] && entry.stats["Total Enemies"]) ? (entry.stats["Destroyed in Spotlight"] / entry.stats["Total Enemies"]*100) : 0;
+        entry.stats["Ratio Golden Bot"] = (entry.stats["Destroyed in Golden Bot"] && entry.stats["Total Enemies"]) ? (entry.stats["Destroyed in Golden Bot"] / entry.stats["Total Enemies"]*100) : 0;
+        entry.stats["Ratio Deathwave"] = (entry.stats["Tagged by Deathwave"] && entry.stats["Total Enemies"]) ? (entry.stats["Tagged by Deathwave"] / entry.stats["Total Enemies"]*100) : 0;
+        entry.stats["Ratio Summon"] = (entry.stats["Summoned enemies"] && entry.stats["Total Enemies"]) ? (entry.stats["Summoned enemies"] / entry.stats["Total Enemies"]*100) : 0;
+        
+        entry.stats["Damage Remaining"] = (entry.stats["Damage dealt"] - 
+            ( (entry.stats["Projectiles Damage"] || 0) +
+              (entry.stats["Orb Damage"] || 0) +
+              (entry.stats["Thorn damage"] || 0) +
+              (entry.stats["Rend Armor Damage"] || 0) +
+              (entry.stats["Death Wave Damage"] || 0) +
+              (entry.stats["Black Hole Damage"] || 0) +
+              (entry.stats["Chain Lightning Damage"] || 0) +
+              (entry.stats["Smart Missile Damage"] || 0) +
+              (entry.stats["Inner Land Mine Damage"] || 0) +
+              (entry.stats["Land Mine Damage"] || 0) +
+              (entry.stats["Death Ray Damage"] || 0) +
+              (entry.stats["Flame Bot Damage"] || 0) + 
+              (entry.stats["Rend Armor Damage"] || 0)
+            ));
+    });
+
+}
+
+// Update both table and charts from server
+        function updateProgressAndCharts(selectedCategory = "all") {
+            loadHistoryFromServer(function(history) {
+                normalizeHistoryKeysOneTime(history);
+                AddCalculatedValues(history); // add special calculated values
+                window.data = history; // Store for later use
+                showCategoryFilter(history, function(cat) {
+                    updateProgressAndCharts(cat);
+                });
+                const filtered = filterHistoryByCategory(history, selectedCategory);
+                showProgress(filtered);
+                showCharts(filtered);
+                showDamageStackedGrouped(filtered);
+                showEnemyStackedGrouped(filtered);
+                showAllStatsTable(filtered);
+            });
+        }
+
+        // Add a select box for filtering by category in the results
+function showCategoryFilter(history, onChange, selectedCategory = "all") {
+    // Add a new div if not present
+    if (!document.getElementById('categoryFilterDiv')) {
+        const div = document.createElement('div');
+        div.id = 'categoryFilterDiv';
+        div.style.margin = "1em 0";
+        document.body.insertBefore(div, document.querySelector('.progress'));
+    }
+    const div = document.getElementById('categoryFilterDiv');
+    div.innerHTML = `
+        <label for="categoryFilter">Show category:</label>
+        <select id="categoryFilter">
+            <option value="all">All</option>
+            <option value="farming">Farming</option>
+            <option value="milestone">Milestone</option>
+            <option value="tournament">Tournament</option>
+        </select>
+    `;
+    document.getElementById('categoryFilter').onchange = function() {
+        onChange(this.value);
+    };
+    const categorySelect = document.getElementById('categoryFilter');
+    if (categorySelect) categorySelect.value = selectedCategory || "all";
+}
+
+// Filter history by category
+function filterHistoryByCategory(history, category) {
+    if (!category || category === "all") return history;
+    return history.filter(entry => (entry.category || "farming") === category);
+}
+
+// Add this function after showCategoryFilter in your <script> section
+function showTierFilter(history, onChange, selectedTier = "all") {
+    // Collect all unique tiers, sorted numerically (as string or number)
+    const tierSet = new Set();
+    history.forEach(entry => {
+        const t = entry.stats["Tier"];
+        if (t !== undefined && t !== null && t !== "") tierSet.add(t);
+    });
+    const tiers = Array.from(tierSet).sort((a, b) => Number(a) - Number(b));
+
+    // Add a new div if not present
+    if (!document.getElementById('tierFilterDiv')) {
+        const div = document.createElement('div');
+        div.id = 'tierFilterDiv';
+        div.style.margin = "1em 0";
+        document.body.insertBefore(div, document.querySelector('.progress'));
+    }
+    const div = document.getElementById('tierFilterDiv');
+    let options = `<option value="all">All Tiers</option>`;
+    tiers.forEach(t => {
+        options += `<option value="${t}">${t}</option>`;
+    });
+    div.innerHTML = `
+        <label for="tierFilter">Filter by Tier:</label>
+        <select id="tierFilter">${options}</select>
+    `;
+    document.getElementById('tierFilter').onchange = function() {
+        onChange(this.value);
+    };
+    const tierSelect = document.getElementById('tierFilter');
+    if (tierSelect) tierSelect.value = selectedTier || "all";
+}
+
+// Filter history by exact tier (or all)
+function filterHistoryByTier(history, selectedTier) {
+    if (!selectedTier || selectedTier === "all") return history;
+    return history.filter(entry => String(entry.stats["Tier"]) === String(selectedTier));
+}
+
+const dateRangeFilterState = {
+    startIndex: 0,
+    endIndex: null
+};
+
+function getHistorySortedByTime(history) {
+    return [...history].sort((a, b) => Number(a.time || 0) - Number(b.time || 0));
+}
+
+function formatFilterDate(ts) {
+    if (!Number.isFinite(ts)) return "n/a";
+    return new Date(ts).toLocaleString();
+}
+
+function showDateRangeFilter(history, onChange) {
+    const sorted = getHistorySortedByTime(history);
+
+    if (!document.getElementById('dateRangeFilterDiv')) {
+        const div = document.createElement('div');
+        div.id = 'dateRangeFilterDiv';
+        div.style.margin = "1em 0";
+        document.body.insertBefore(div, document.querySelector('.progress'));
+    }
+
+    const div = document.getElementById('dateRangeFilterDiv');
+    if (sorted.length === 0) {
+        div.innerHTML = '<p>Date range: no runs available.</p>';
+        return;
+    }
+
+    const maxIndex = sorted.length - 1;
+    if (!Number.isInteger(dateRangeFilterState.startIndex)) dateRangeFilterState.startIndex = 0;
+    if (!Number.isInteger(dateRangeFilterState.endIndex)) dateRangeFilterState.endIndex = maxIndex;
+
+    dateRangeFilterState.startIndex = Math.max(0, Math.min(dateRangeFilterState.startIndex, maxIndex));
+    dateRangeFilterState.endIndex = Math.max(0, Math.min(dateRangeFilterState.endIndex, maxIndex));
+
+    if (dateRangeFilterState.startIndex > dateRangeFilterState.endIndex) {
+        dateRangeFilterState.endIndex = dateRangeFilterState.startIndex;
+    }
+
+    const startTs = Number(sorted[dateRangeFilterState.startIndex]?.time || 0);
+    const endTs = Number(sorted[dateRangeFilterState.endIndex]?.time || 0);
+
+    div.innerHTML = `
+        <div style="display:flex;gap:12px;align-items:center;flex-wrap:wrap;">
+            <strong>Date Range:</strong>
+            <label for="dateRangeStart">From</label>
+            <input id="dateRangeStart" type="range" min="0" max="${maxIndex}" step="1" value="${dateRangeFilterState.startIndex}" style="width:220px;">
+            <label for="dateRangeEnd">To</label>
+            <input id="dateRangeEnd" type="range" min="0" max="${maxIndex}" step="1" value="${dateRangeFilterState.endIndex}" style="width:220px;">
+        </div>
+        <div style="margin-top:4px;font-size:0.95em;">
+            <span id="dateRangeLabelStart">${formatFilterDate(startTs)}</span>
+            <span style="margin:0 8px;">→</span>
+            <span id="dateRangeLabelEnd">${formatFilterDate(endTs)}</span>
+            <span style="margin-left:12px;color:#555;">(${dateRangeFilterState.endIndex - dateRangeFilterState.startIndex + 1} runs)</span>
+        </div>
+    `;
+
+    const startInput = document.getElementById('dateRangeStart');
+    const endInput = document.getElementById('dateRangeEnd');
+
+    startInput.oninput = function() {
+        let start = Number(this.value);
+        let end = Number(endInput.value);
+        if (start > end) {
+            end = start;
+            endInput.value = String(end);
+        }
+        dateRangeFilterState.startIndex = start;
+        dateRangeFilterState.endIndex = end;
+        onChange();
+    };
+
+    endInput.oninput = function() {
+        let start = Number(startInput.value);
+        let end = Number(this.value);
+        if (end < start) {
+            start = end;
+            startInput.value = String(start);
+        }
+        dateRangeFilterState.startIndex = start;
+        dateRangeFilterState.endIndex = end;
+        onChange();
+    };
+}
+
+function filterHistoryByDateRange(history) {
+    if (!history || history.length === 0) return history;
+    const sorted = getHistorySortedByTime(history);
+    const maxIndex = sorted.length - 1;
+
+    const startIndex = Math.max(0, Math.min(Number(dateRangeFilterState.startIndex || 0), maxIndex));
+    const endIndex = Math.max(0, Math.min(Number(dateRangeFilterState.endIndex ?? maxIndex), maxIndex));
+    const start = Math.min(startIndex, endIndex);
+    const end = Math.max(startIndex, endIndex);
+
+    const startTime = Number(sorted[start]?.time || 0);
+    const endTime = Number(sorted[end]?.time || 0);
+
+    return history.filter(entry => {
+        const t = Number(entry.time || 0);
+        return t >= startTime && t <= endTime;
+    });
+}
+
+// Update both table and charts from server, with category and tier filter
+function updateProgressAndCharts(selectedCategory = "all", selectedTier = "all") {
+    loadHistoryFromServer(function(history) {
+        normalizeHistoryKeysOneTime(history);
+        AddCalculatedValues(history); // add special calculated values
+        window.data = history; // Store for later use
+
+        showCategoryFilter(history, function(cat) {
+            // When category changes, keep current tier
+            const tier = document.getElementById('tierFilter')?.value || "all";
+            updateProgressAndCharts(cat, tier);
+        }, selectedCategory);
+
+        showTierFilter(history, function(tier) {
+            // When tier filter changes, keep current category
+            const cat = document.getElementById('categoryFilter')?.value || "all";
+            updateProgressAndCharts(cat, tier);
+        }, selectedTier);
+
+        showDateRangeFilter(history, function() {
+            const cat = document.getElementById('categoryFilter')?.value || "all";
+            const tier = document.getElementById('tierFilter')?.value || "all";
+            updateProgressAndCharts(cat, tier);
+        });
+
+        // Get current filter values
+        const cat = selectedCategory;
+        const tier = selectedTier;
+
+        let filtered = filterHistoryByCategory(history, cat);
+        filtered = filterHistoryByTier(filtered, tier);
+        filtered = filterHistoryByDateRange(filtered);
+
+        showProgress(filtered);
+        showCharts(filtered);
+        showDamageStackedGrouped(filtered);
+        showEnemyStackedGrouped(filtered);
+        showAllStatsTable(filtered);
+    });
+}
+        // Button handler
+document.getElementById('saveBtn').onclick = function() {
+    const text = document.getElementById('dataInput').value;
+    const comment = document.getElementById('commentInput').value;
+    const category = document.getElementById('categoryInput').value;
+    if (!text.trim()) return;
+    const stats = parseStats(text, category);
+    saveStatsToServer(stats, comment, category, function() {
+        updateProgressAndCharts();
+        document.getElementById('dataInput').value = '';
+        document.getElementById('commentInput').value = '';
+    });
+};
+
+        // Show progress and charts on load
+    initParserDebugPanel();
+        updateProgressAndCharts();
+
+    </script>
+</body>
+</html>

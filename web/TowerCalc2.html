@@ -1,0 +1,261 @@
+<html>
+<head>
+<title>TowerCalc</title>
+<script
+  src="https://code.jquery.com/jquery-3.7.1.min.js"
+  integrity="sha256-/JqT3SQfawRcv/BIHPThkBvs0OEvtFFmqPF/lYI/Cxo="
+  crossorigin="anonymous"></script>
+<script src="towercalc.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/flot/4.2.6/jquery.canvaswrapper.min.js" integrity="sha512-Vj7rQBCQNDAbJNM5crhM6nzBoR1oIeE82OQDmx0l1ptN+7T5AQuRzzsQ+rqkuibqT14JjChkpB+8DW5fmjrjnw==" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/flot/4.2.6/jquery.flot.js" integrity="sha512-b0/xA9839WwDovAHA0nMyu/6/Vtd58xyMub+i9MRpz7Lv6PbeasD5Ww4SB3QEZHC/KZTsj1+cJFJY9Ivei1wfQ==" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/flot/4.2.6/jquery.flot.uiConstants.min.js" integrity="sha512-02f7kh8oGru0zDziDj2PSAa6OIhkh0FR8StvcTvmN6bsqzxnrD9TFP7TffYVbX5HLMjgL8syriRbn7W1zTq9DQ==" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/flot/4.2.6/jquery.flot.browser.min.js" integrity="sha512-VQd/q4C1w/PN6MI00uurfwSiFb6tLkt/ocprvkNjh7Dgf7phD3Z970CSxX5ni5aYC4bsinQtfKUk7aCL5bTQfQ==" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/flot/4.2.6/jquery.colorhelpers.min.js" integrity="sha512-fOvetjhMPbrraqJeIs0HQpIF/EQ3ejpUV/N5K1KZSxXSBYZGOO93DQ0g86nYHJJaXU/gydnyzX346OvxwPJl5A==" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/flot/4.2.6/jquery.flot.drawSeries.min.js" integrity="sha512-9Fp66i1Z/ZSW1sjrQVnjucgz2oV8tTSzOI6BgdvmMi6zbVuuVPLiicuGMkUn7kCVsWr6lA5U/EyigK1VOVmTUA==" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/flot/4.2.6/jquery.flot.saturated.min.js" integrity="sha512-D0IA9fF9uH3Q6dTdjIOmnOrwROGVxXC3CO1dz5TxNNT10zRS/fCiAdxCovyLtYPS9v1S3usVL8lonvqb4Nr8JQ==" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
+<script
+  src="https://code.jquery.com/ui/1.14.0/jquery-ui.min.js"
+  integrity="sha256-Fb0zP4jE3JHqu+IBB9YktLcSjI1Zc6J2b6gTjB0LpoM="
+  crossorigin="anonymous"></script>
+<link rel="stylesheet" href="https://code.jquery.com/ui/1.14.0/themes/base/jquery-ui.css" /> 
+<style>
+.slid { margin-left:30px; margin-right:20px; margin-bottom:10px; }
+</style>
+<script>
+
+ $( function() {
+    $( "#sliderctp" ).slider(
+	{
+	slide: function( event, ui ) {
+        $('#ctp').val(parseInt(ui.value*parseInt($('#wave').val()/100)));
+		calc();
+      }
+    });
+    $( "#slidergt" ).slider(
+	{
+	slide: function( event, ui ) {
+        $('#gt').val(parseInt(ui.value*parseInt($('#wave').val()/100)));
+		calc();
+      }
+    });
+	$( "#sliderc1" ).slider(
+	{
+	slide: function( event, ui ) {
+		var coins = [];
+		$('#coins').val().split(',').forEach(x => coins.push(parseInt(x)));
+		coins[0] = parseInt(ui.value*parseInt($('#wave').val()/100))
+	
+        $('#coins').val(coins.join(","));
+		calc();
+      }
+    });
+$( "#sliderc2" ).slider(
+	{
+	slide: function( event, ui ) {
+		var coins = [];
+		$('#coins').val().split(',').forEach(x => coins.push(parseInt(x)));
+		coins[1] = parseInt(ui.value*parseInt($('#wave').val()/100))
+	
+        $('#coins').val(coins.join(","));
+		calc();
+      }
+    });
+$( "#sliderc3" ).slider(
+	{
+	slide: function( event, ui ) {
+		var coins = [];
+		$('#coins').val().split(',').forEach(x => coins.push(parseInt(x)));
+		coins[2] = parseInt(ui.value*parseInt($('#wave').val()/100))
+	
+        $('#coins').val(coins.join(","));
+		calc();
+      }
+    });
+$( "#sliderc4" ).slider(
+	{
+	slide: function( event, ui ) {
+		var coins = [];
+		$('#coins').val().split(',').forEach(x => coins.push(parseInt(x)));
+		coins[3] = parseInt(ui.value*parseInt($('#wave').val()/100))
+	
+        $('#coins').val(coins.join(","));
+		calc();
+      }
+    });
+$( "#sliderc5" ).slider(
+	{
+	slide: function( event, ui ) {
+		var coins = [];
+		$('#coins').val().split(',').forEach(x => coins.push(parseInt(x)));
+		coins[4] = parseInt(ui.value*parseInt($('#wave').val()/100))
+	
+        $('#coins').val(coins.join(","));
+		calc();
+      }
+    });	
+	calc();
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
+  } );
+
+
+function calc()
+{
+	var tier = parseInt($('#tier').val());
+	var wave = parseInt($('#wave').val());
+	var eb = 0; parseInt($('#eb').val());
+	var ws = 0; parseInt($('#ws').val());
+	var fps = 0; parseInt($('#fps').val());
+
+	var cb = 1; parseFloat($('#cb').val()) * coinbonus[tier];
+
+	var ctp80 = parseInt($('#ctp').val());
+	var gt = parseInt($('#gt').val());
+	var coins = [];
+	$('#coins').val().split(',').forEach(x => coins.push(parseInt(x)));
+	
+	var total = parseFloat($('#total').val());
+
+	var html=`Tier ${tier} Wave ${wave} <br />`;
+
+	html+="Coin bonus: "+cb.toFixed(2)+"<br />";
+	var data_pure = CoinsPerWave(wave, eb,ws,1,[],-1,-1);
+	ratio = total/data_pure[wave-1][1];
+
+	var data = CoinsPerWave(wave, eb,ws,1,coins,gt,ctp80);
+	var data_pure = CoinsPerWave(wave, eb,ws,1,[],-1,-1);
+	
+	for(var i=0;i<wave;i++)	
+	{
+	data[i][1] *= ratio;
+	data_pure[i][1] *= ratio;
+	}
+	
+	
+	var markings = [ 
+	{ xaxis: { from: ctp80, to: ctp80 }, color: "purple" },
+	{ xaxis: { from: gt, to: gt }, color: "gold" }
+	]
+	for(var i=0;i<coins.length;i++)
+	{
+	markings.push({ xaxis: { from: coins[i], to: coins[i] }, color: "gray" })
+	}
+	
+	console.log(data);
+	$.plot("#chart",[data, data_pure], { grid: { markings: markings }});
+	
+	
+	
+	var improve=((data[wave-1][1]/data_pure[wave-1][1]*100).toFixed(1));
+	html = "Coins without perks: "+data_pure[wave-1][1].toFixed(1)+" B, coins with perks: "+data[wave-1][1].toFixed(1)+" B ("+improve+"%)";
+	
+	$('#result').html(html);
+
+
+	var cpm = calcCPM(data);
+	var cpm_pure = calcCPM(data_pure);
+	
+	
+	var markings = [ 
+	{ xaxis: { from: ctp80, to: ctp80 }, color: "purple" },
+	{ xaxis: { from: gt, to: gt }, color: "gold" }
+	]
+	for(var i=0;i<coins.length;i++)
+	{
+	markings.push({ xaxis: { from: coins[i], to: coins[i] }, color: "gray" })
+	}
+	
+	console.log(cpm, cpm_pure);
+	$.plot("#chart2",[cpm, cpm_pure], { grid: { markings: markings }});
+	
+		
+
+// coin bot
+
+// GT
+// BH
+// slow
+// CPK
+
+
+
+
+
+
+}
+
+
+
+
+</script>
+
+</head>
+<body>
+Normal wave: <input type="text" id="wave" value="10000" /> <br />
+Total coins without perks: <input type="text" id="total" value="100" /> B <br />
+
+<!--
+Tier: <input type="text" id="tier" value="9" /> <br />
+Enemy Balance: <input type="text" id="eb" value="6" /> <br />
+Wave skip: <input type="text" id="ws" value="4" /> <br />
+FPS loss %: <input type="text" id="fps" value="9" /> <br />
+Coin bonuses T1 %: <input type="text" id="cb" value="17.84" /> <br />
+-->
+
+80% Perk at wave <input type="text" id="ctp" value="0" /> <br />
+GT Perk at wave <input type="text" id="gt" value="0" /> <br />
+Coin perks at waves <input type="text" id="coins" value="0,0,0,0,0" /> <br />
+<br />
+<br />
+<button id="calc" onclick="calc();" >calc</button>
+<br />
+<br />
+<div style="width:1220px;height:620px">
+<span>Total coins at wave</span>
+<div id="chart" style="width:1200px;height:600px"></div>
+80% Perk
+<div class="slid" id="sliderctp"></div>
+50% GT Perk
+<div class="slid" id="slidergt"></div>
+1. Coin Perk
+<div class="slid" id="sliderc1"></div>
+2. Coin Perk
+<div class="slid" id="sliderc2"></div>
+3. Coin Perk
+<div class="slid" id="sliderc3"></div>
+4. Coin Perk
+<div class="slid" id="sliderc4"></div>
+5. Coin Perk
+<div class="slid" id="sliderc5"></div>
+
+<div id="result">
+</div>
+
+
+<span>CPM in M/min for 5.0/6.2 speed</span>
+<div id="chart2" style="width:1200px;height:600px"></div>
+
+
+
+
+</div>
+
+
+
+
+
+
+
+
+
+
+</body>
+</html>

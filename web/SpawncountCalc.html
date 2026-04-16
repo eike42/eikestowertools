@@ -1,0 +1,167 @@
+<html>
+<head>
+<title>TowerCalc</title>
+<script
+  src="https://code.jquery.com/jquery-3.7.1.min.js"
+  integrity="sha256-/JqT3SQfawRcv/BIHPThkBvs0OEvtFFmqPF/lYI/Cxo="
+  crossorigin="anonymous"></script>
+<script src="towercalc2.js"></script>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" integrity="sha384-QWTKZyjpPEjISv5WaRU9OFeRpok6YctnYmDr5pNlyT2bRjXh0JMhjY6hW+ALEwIH" crossorigin="anonymous">
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.min.js" integrity="sha384-0pUGZvbkm6XF6gxjEnlmuGrJXVbNuzT9qBBavbLwCsOGabYfZo0T0to5eqruptLy" crossorigin="anonymous"></script>
+<style>
+body 
+{
+    margin: 10px;
+}
+#errors {
+	color:red;
+}
+</style>
+<script>
+String.prototype.re=function(e){var r;return(r=new RegExp(e).exec(this))?r[1]:""}; // by Eike
+values={};
+
+function calc()
+{
+	var errors = [];
+	var wave = parseInt($('#wave').val());
+	var eb = parseInt($('#eb').val());
+	var enemy = parseInt($('#enemy').val());
+	var tier = parseInt($('#tier').val());
+	var iswaves = parseInt($('#iswaves').val());
+	var wavesskipped = parseInt($('#wavesskipped').val());
+	var wamastery = parseInt($('#wamastery').val());
+	var ebmastery = parseInt($('#ebmastery').val());
+	var summon = parseInt($('#summon').val());
+	var html=`Wave ${wave} <br />`;
+	
+	if(wamastery > 9) errors.push("WA mastery must be between -1 and 9.");
+	if(tier > 21) errors.push("Tier noch invented yet.");
+	if(eb > 7) errors.push("Enemy balance must be between 0 and 7.");
+	
+	if(errors.length>0)
+	{
+		$('#errors').html(errors.join("<br />")).show();
+		return;
+	}
+	else {
+		$('#errors').hide();
+	}
+	wavesskipped -= iswaves * 0.9; // displayed as skipped, but hereby calculated differently
+	var res = totalSpawns2(wave, eb, wavesskipped, tier, iswaves, wamastery, ebmastery);
+
+	res.spawns += summon; // summoned enemies
+
+	var loss = (res.spawns - enemy) / res.spawns * 100;
+
+	if(loss > 0)
+		html = "Total spawns should be "+res.spawns.toFixed(0)+". You have "+enemy+", that is a loss of "+loss.toFixed(1)+"%.";
+		
+	else
+		html = "Total spawns should be "+res.spawns.toFixed(0)+". You have "+enemy+", that is "+(-loss).toFixed(1)+" % more than calculated, seems you are fine.";
+
+	html +="<br /><br />";
+
+	for(var key in res)
+	{
+		html+= key + ": calculated: " + res[key].toFixed(1);
+		if(values[key])
+			html+=" your run: "+values[key].toFixed(1) + " ("+ ((res[key]-values[key])/res[key]*100).toFixed(1) +"%)";
+
+		html+= "<br />";
+	
+	
+	}
+	html += "*Note 1: Scatters are counted per piece in the totals.<br />"
+	html += "*Note 2: Protector numbers are unreliable, because of the spawn limit. They are included in the basics for this sake."
+
+	$('#result').html(html);
+
+
+
+
+}
+
+
+function autoload_values()
+{
+	var rundata = $('#autotext').val();
+	
+	var wave = rundata.re("Wave\\s+(\\d+)");
+	if(wave!="") $('#wave').val(wave).css('background-color','green');
+	
+	var skip = rundata.re("Waves Skipped\\s+(\\d+)");
+	if(skip!="") $('#wavesskipped').val(skip).css('background-color','green');
+		
+	var enemies = rundata.re("Total Enemies\\s+(\\d+)");
+	if(enemies!="") $('#enemy').val(enemies).css('background-color','green');
+	
+	var summon = rundata.re("Summoned enemies\\s+([\\d,\\.]+[kmKM]?)");
+	summon = summon.replace(',','.').replace('K','k');
+	summon = parseTower(summon);
+	if(enemies!="") $('#summon').val(summon).css('background-color','green');
+	
+	var tier = rundata.re("Tier\\s+(\\d+)");
+	if(tier!="") $('#tier').val(tier).css('background-color','green');
+	
+	values.basic = parseInt(rundata.re("Basic\\s+(\\d+)"));
+	values.basic += parseInt(rundata.re("Protector\\s+(\\d+)"));
+	values.boss = parseInt(rundata.re("Boss\\s+(\\d+)"));
+	values.fast = parseInt(rundata.re("Fast\\s+(\\d+)"));
+	values.ranged = parseInt(rundata.re("Ranged\\s+(\\d+)"));
+	values.tank = parseInt(rundata.re("Tank\\s+(\\d+)"));
+	values.vampire = parseInt(rundata.re("Vampires\\s+(\\d+)"));
+	values.ray = parseInt(rundata.re("Rays\\s+(\\d+)"));
+	values.scatter = parseInt(rundata.re("Scatters\\s+(\\d+)"))*31;
+}
+
+$( document ).ready(function() {
+	$('#auto').click(function() { $('#autotext').show(); });
+	$('#autotext').click(function() { $('#autotext').val(""); });
+	$('#autotext').change(function() { autoload_values(); });
+	
+});
+
+</script>
+
+</head>
+<body>
+
+<table>
+<button id=auto>Autofill</button>
+<textarea id=autotext style="display:none;">Insert your run info here</textarea>
+<tr><td>Tier</td><td><input type="text" id="tier" value="10" /></td></tr>
+<tr><td>Wave</td><td><input type="text" id="wave" value="5235" /></td></tr>
+<tr><td>Enemy Balance level</td><td><input type="text" id="eb" value="7" /></td></tr>
+<tr><td>Skipped waves (incl. IS)</td><td><input type="text" id="wavesskipped" value="0" /></td></tr>
+<tr><td>Your total enemy count</td><td><input type="text" id="enemy" value="678062" /></td></tr>
+<tr><td>Total summon count</td><td><input type="text" id="summon" value="0" /></td></tr>
+<tr><td>Intro sprint waves</td><td><input type="text" id="iswaves" value="0" /></td></tr>
+<tr><td>WA Mastery level</td><td><input type="text" id="wamastery" value="-1" /> (-1 for not unlocked/card not equiped)</td></tr>
+<tr><td>EB Mastery level</td><td><input type="text" id="ebmastery" value="-1" /> (-1 for not unlocked/card not equiped)</td></tr>
+</table>
+<br />
+<div id="errors"></div>
+<br />
+<button id="calc" onclick="calc();" >calc</button>
+<br />
+<br />
+<div id="result">
+
+
+
+</div>
+
+
+
+<div>
+More information on reddit: <a href="https://www.reddit.com/r/TheTowerGame/comments/1huyrn3/number_of_enemy_spawns_losses/">https://www.reddit.com/r/TheTowerGame/comments/1huyrn3/number_of_enemy_spawns_losses/</a>
+
+
+
+
+
+
+
+</body>
+</html>

@@ -1,0 +1,306 @@
+<html>
+<head>
+<title>The Tower: DW kill wave calculator</title>
+<script
+  src="https://code.jquery.com/jquery-3.7.1.min.js"
+  integrity="sha256-/JqT3SQfawRcv/BIHPThkBvs0OEvtFFmqPF/lYI/Cxo="
+  crossorigin="anonymous"></script>
+<script src="towercalc.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/flot/4.2.6/jquery.canvaswrapper.min.js" integrity="sha512-Vj7rQBCQNDAbJNM5crhM6nzBoR1oIeE82OQDmx0l1ptN+7T5AQuRzzsQ+rqkuibqT14JjChkpB+8DW5fmjrjnw==" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/flot/4.2.6/jquery.flot.js" integrity="sha512-b0/xA9839WwDovAHA0nMyu/6/Vtd58xyMub+i9MRpz7Lv6PbeasD5Ww4SB3QEZHC/KZTsj1+cJFJY9Ivei1wfQ==" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/flot/4.2.6/jquery.flot.uiConstants.min.js" integrity="sha512-02f7kh8oGru0zDziDj2PSAa6OIhkh0FR8StvcTvmN6bsqzxnrD9TFP7TffYVbX5HLMjgL8syriRbn7W1zTq9DQ==" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/flot/4.2.6/jquery.flot.browser.min.js" integrity="sha512-VQd/q4C1w/PN6MI00uurfwSiFb6tLkt/ocprvkNjh7Dgf7phD3Z970CSxX5ni5aYC4bsinQtfKUk7aCL5bTQfQ==" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/flot/4.2.6/jquery.colorhelpers.min.js" integrity="sha512-fOvetjhMPbrraqJeIs0HQpIF/EQ3ejpUV/N5K1KZSxXSBYZGOO93DQ0g86nYHJJaXU/gydnyzX346OvxwPJl5A==" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/flot/4.2.6/jquery.flot.drawSeries.min.js" integrity="sha512-9Fp66i1Z/ZSW1sjrQVnjucgz2oV8tTSzOI6BgdvmMi6zbVuuVPLiicuGMkUn7kCVsWr6lA5U/EyigK1VOVmTUA==" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/flot/4.2.6/jquery.flot.saturated.min.js" integrity="sha512-D0IA9fF9uH3Q6dTdjIOmnOrwROGVxXC3CO1dz5TxNNT10zRS/fCiAdxCovyLtYPS9v1S3usVL8lonvqb4Nr8JQ==" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
+<script
+  src="https://code.jquery.com/ui/1.14.0/jquery-ui.min.js"
+  integrity="sha256-Fb0zP4jE3JHqu+IBB9YktLcSjI1Zc6J2b6gTjB0LpoM="
+  crossorigin="anonymous"></script>
+<link rel="stylesheet" href="https://code.jquery.com/ui/1.14.0/themes/base/jquery-ui.css" /> 
+<style>
+.slid { margin-left:30px; margin-right:20px; margin-bottom:10px; }
+</style>
+<script>
+
+ $( function() {
+    
+	
+	
+	
+	
+	
+	
+  } );
+
+
+function calc()
+{
+	var html="<table><tr><th>Wave</th><th>Seconds</th><th>CD</th><th>Power</th><th>Kills</th><th>Enemy-HP</th></tr>";
+
+	var gc = [0,10,13,17,20];
+	var tier = parseInt($('#tier').val());
+	var tourney = $('#tier').val().indexOf("+") >= 0;
+	var eb = parseInt($('#eb').val());
+	var ws = parseInt($('#ws').val());
+	var wschance = WS_MODIFIER[ws] / 100;
+	var ehls = parseFloat($('#ehls').val());
+	var gclevel = parseInt($('#gclevel').val());
+	var dwlevel = parseInt($('#dwlevel').val());
+	var dwcooldown = parseInt($('#dwcooldown').val());
+	var dwdamage = parseTower($('#dwdamage').val());
+	var dwdamageinc = parseFloat($('#dwdamageinc').val()) /100;
+	var wavelength = parseInt($('#wavedur').val());
+	var pkgchance = parseFloat($('#package').val()) / 100;
+	var pkgred = gc[gclevel];
+	var amount = parseFloat($('#amount').val()) / 100;
+
+	var hp = 1;
+	var wave = 1;
+	var seconds = 0;
+	var next = dwcooldown;
+	var dwpower = 0;
+	var killed = 0;
+	var kwdied = 0;
+	var multiMaxed = 0;
+	// graphs
+	var dwpoolPW = [];
+	var dwdamagePW = [];
+	var dwHealthPW = [];
+	var enemyHealthPW = [];
+	
+
+	while((hp < dwdamage) && (wave < 10000))
+	{
+		// skip?
+		if(Math.random() < wschance)
+		{
+			dwpoolPW.push([ wave, dwpower]);
+			dwHealthPW.push([wave, getMulti(killed,dwlevel) ]);
+			enemyHealthPW.push([wave, hp]);
+			dwdamagePW.push([wave, dwdamage]);
+			wave++;
+			dwdamage *= 1+ dwdamageinc;
+			continue;
+		}
+	
+		seconds += wavelength;
+		next -= wavelength;
+		
+		if(next<0)
+		{
+			next +=dwcooldown;
+			dwpower +=dwdamage;
+		}
+
+		hp = ENEMYHP(wave * (1-ehls/100), tier, tourney);
+		spawns = waveSpawns(wave, eb, ws, tier);
+		var totaldmg = getTotalHealth(spawns,hp, amount);
+		
+		if(dwpower == 0)
+		{
+		}
+		else if(totaldmg < dwpower)
+		{
+			dwpower -= totaldmg;
+			killed += Math.ceil(spawns.spawns * amount);
+		} else {
+			killed += Math.ceil(spawns.spawns * amount * (dwpower / totaldmg));
+			dwpower = 0;
+			if(kwdied==0) kwdied = wave;
+			dwdamageinc = 0;
+		}
+		
+		if(multiMaxed==0)
+		{
+			if((1+killed*0.0005) >= (dwlevel * 0.25 + 5))
+			multiMaxed = wave;
+		
+		}
+		
+		
+		if(Math.random() < pkgchance)
+		{
+			next -= pkgred;
+		}
+		
+		dwpoolPW.push([ wave, dwpower]);
+		dwHealthPW.push([wave, getMulti(killed,dwlevel) ]);
+		enemyHealthPW.push([wave, hp]);
+		dwdamagePW.push([wave, dwdamage]);
+		wave++;
+		dwdamage *= 1+ dwdamageinc;
+		html+=tdrize([wave,seconds,next,towerNum(dwpower),getMulti(killed,dwlevel), towerNum(hp)]);
+		
+	}
+	
+	html+="</table>";
+	
+	$('#result').html(html);
+
+		
+	$.plot("#chart",[
+		{ data: dwpoolPW },
+		{ data: dwdamagePW, yaxis: 3 },
+		{ data: enemyHealthPW, yaxis: 2 }]
+		, { grid: { }, yaxes: [{ tickFormatter: formtick }, { tickFormatter: formtick, position:"right"}, { tickFormatter: formtick, position:"right"}]});
+	$.plot("#chart2",[dwHealthPW], { grid: { }, yaxis: { tickFormatter: formtick2 } });
+	
+	
+	
+	$('#textresult').html("Killwave stable until wave "+kwdied+". "+ (multiMaxed == 0 ? "Multiplier ="+(1+killed*0.0005)+"x at the end" : "Multiplier maxed at wave "+multiMaxed));
+	
+	
+	return;
+	
+
+	var cpm = calcCPM(data);
+	var cpm_pure = calcCPM(data_pure);
+	
+	
+	var markings = [ 
+	{ xaxis: { from: ctp80, to: ctp80 }, color: "purple" },
+	{ xaxis: { from: gt, to: gt }, color: "gold" }
+	]
+	for(var i=0;i<coins.length;i++)
+	{
+	markings.push({ xaxis: { from: coins[i], to: coins[i] }, color: "gray" })
+	}
+	
+	console.log(cpm, cpm_pure);
+	$.plot("#chart2",[cpm, cpm_pure], { grid: { markings: markings }});
+	
+		
+
+// coin bot
+
+// GT
+// BH
+// slow
+// CPK
+
+}
+
+function getMulti(killed,dwlevel)
+{
+ var m=(1+killed*0.0005)
+ var m2=dwlevel * 0.25 + 5;
+ return Math.min(m,m2);
+}
+
+function formtick(v)
+{
+return towerNum(v);
+}
+function formtick2(v)
+{
+return v.toFixed(2)+"x";
+}
+
+function calcTicks(axis) {
+	var res = [];
+	for(var i=0;i<10;i++)
+	{
+		var v=axis.min+(axis.max-axis.min)*i/10;
+		res.push([v,towerNum(v)]);
+	}
+    return res;
+}
+
+
+function tdrize(arr)
+{
+	var html="<tr>";
+	for(s in arr)
+	{
+		html+="<td>"+arr[s]+"</td>";
+	}
+	return html+"</tr>";	
+
+}
+
+function visi()
+{
+	if($('#gclevel').val()=="0")
+		$('#showpkg').hide();
+	else
+		$('#showpkg').show();
+		
+}
+
+
+</script>
+
+</head>
+<body>
+<div>
+<a href="https://www.reddit.com/r/TheTowerGame/comments/1im1zm8/killwave_calculator_for_the_death_wave/">Link on reddit</a>
+</div>
+<table>
+<tr><td>
+<tr><td>DW Damage at start:</td><td> <input type="text" id="dwdamage" value="1T" /> (you can use k,M,B,T,q,Q)</td></tr>
+<tr><td>DW Damage increase per wave:</td><td> <input type="text" id="dwdamageinc" value="0" /> % (use this if you update dmg with your WS during the run)</td></tr>
+<tr><td>DW cooldown:</td><td><input type="text" id="dwcooldown" value="190" /> s </td></tr>
+<tr><td>DW health level:</td><td><input type="text" id="dwlevel" value="30" /> </td></tr>
+<tr><td>GC Level (0=not used, 1=epic, etc)</td><td><input type=text id=gclevel value=3 onchange="visi()" /> <br/>
+<tr id="showpkg"><td>Package chance:</td><td><input type=text id=package value=74> % </td></tr>
+<tr><td>Wave duration:</td><td><input type=text id="wavedur" value=31> s </td></tr>
+<tr><td>Tier:</td><td>
+<select id="tier" onchange="visi()">
+<option value="1">T1</option>
+<option value="2">T2</option>
+<option value="3">T3</option>
+<option value="4">T4</option>
+<option value="5">T5</option>
+<option value="6">T6</option>
+<option value="7">T7</option>
+<option value="8">T8</option>
+<option value="9">T9</option>
+<option value="10">T10</option>
+<option value="11">T11</option>
+<option value="12">T12</option>
+<option value="13">T13</option>
+<option value="14">T14</option>
+<option value="1+">Copper League</option>
+<option value="3+">Silver League</option>
+<option value="5+">Gold League</option>
+<option value="8+">Platinum League</option>
+<option value="11+">Champion League</option>
+<option value="14+">Legend League</option>
+</select>
+ </td></tr>
+<tr><td>Enemy Balance (card level, 0=not used):</td><td><input type="text" id="eb" value="7" /> </td></tr>
+<tr><td>Wave skip (card level, 0=not used):</td><td><input type="text" id="ws" value="7" /> </td></tr>
+<tr><td>EHLS (average)</td><td><input type="text" id="ehls" value="30" /> %</td></tr>
+<tr><td>Amount of enemies killed by DW</td><td><input type="text" id="amount" value="80" /> % (*i.e. land mines can kill enemies before reaching the DW)</td></tr>
+</table>
+<br />
+<br />
+<button id="calc" onclick="calc();" >calc</button>
+<br />
+<div id="textresult"></div>
+<br />
+<div style="display:none;" id="result"></div><a href="#" onclick="$('#result').show();">[Show details]</a><br />
+<br />
+<br />
+<div>Killwave pool (yellow), enemy HP (red, right axis), DW damage (blue, third axis)</div>
+<div id="chart" style="width:1200px;height:600px"></div>
+
+<br />
+<br />
+<div>DW health multiplier</div>
+<div id="chart2" style="width:1200px;height:600px"></div>
+
+</div>
+
+
+
+
+
+
+
+
+
+
+</body>
+</html>

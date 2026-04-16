@@ -1,0 +1,125 @@
+<html>
+<head>
+<title>The Tower: EHP to GC transition estimator</title>
+<script
+  src="https://code.jquery.com/jquery-3.7.1.min.js"
+  integrity="sha256-/JqT3SQfawRcv/BIHPThkBvs0OEvtFFmqPF/lYI/Cxo="
+  crossorigin="anonymous"></script>
+<script src="towercalc.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/flot/4.2.6/jquery.canvaswrapper.min.js" integrity="sha512-Vj7rQBCQNDAbJNM5crhM6nzBoR1oIeE82OQDmx0l1ptN+7T5AQuRzzsQ+rqkuibqT14JjChkpB+8DW5fmjrjnw==" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/flot/4.2.6/jquery.flot.js" integrity="sha512-b0/xA9839WwDovAHA0nMyu/6/Vtd58xyMub+i9MRpz7Lv6PbeasD5Ww4SB3QEZHC/KZTsj1+cJFJY9Ivei1wfQ==" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/flot/4.2.6/jquery.flot.uiConstants.min.js" integrity="sha512-02f7kh8oGru0zDziDj2PSAa6OIhkh0FR8StvcTvmN6bsqzxnrD9TFP7TffYVbX5HLMjgL8syriRbn7W1zTq9DQ==" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/flot/4.2.6/jquery.flot.browser.min.js" integrity="sha512-VQd/q4C1w/PN6MI00uurfwSiFb6tLkt/ocprvkNjh7Dgf7phD3Z970CSxX5ni5aYC4bsinQtfKUk7aCL5bTQfQ==" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/flot/4.2.6/jquery.colorhelpers.min.js" integrity="sha512-fOvetjhMPbrraqJeIs0HQpIF/EQ3ejpUV/N5K1KZSxXSBYZGOO93DQ0g86nYHJJaXU/gydnyzX346OvxwPJl5A==" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/flot/4.2.6/jquery.flot.drawSeries.min.js" integrity="sha512-9Fp66i1Z/ZSW1sjrQVnjucgz2oV8tTSzOI6BgdvmMi6zbVuuVPLiicuGMkUn7kCVsWr6lA5U/EyigK1VOVmTUA==" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/flot/4.2.6/jquery.flot.saturated.min.js" integrity="sha512-D0IA9fF9uH3Q6dTdjIOmnOrwROGVxXC3CO1dz5TxNNT10zRS/fCiAdxCovyLtYPS9v1S3usVL8lonvqb4Nr8JQ==" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
+<script
+  src="https://code.jquery.com/ui/1.14.0/jquery-ui.min.js"
+  integrity="sha256-Fb0zP4jE3JHqu+IBB9YktLcSjI1Zc6J2b6gTjB0LpoM="
+  crossorigin="anonymous"></script>
+<link rel="stylesheet" href="https://code.jquery.com/ui/1.14.0/themes/base/jquery-ui.css" /> 
+<style>
+.slid { margin-left:30px; margin-right:20px; margin-bottom:10px; }
+</style>
+<script>
+
+ var tourn = 
+ {
+ "Copper League":     1 ,
+ "Silver League":     3 ,
+ "Gold League":       5 ,
+ "Platinum League":   8 ,
+ "Champion League":   11,
+ "Legend League":     14,
+ };
+
+ $( function() {
+
+  } );
+
+
+function calc()
+{
+    var wallhealth = parseTower($('#wallhealth').val());
+    var defabs = parseTower($('#defabs').val());
+	var defp = parseFloat($('#devperc').val());
+	var dmgred = parseFloat($('#dmgred').val());
+	var eals = parseFloat($('#eals').val());
+	
+	var eHP = (wallhealth / (1-dmgred/100) + defabs) / (1-defp/100);
+	
+	var html="<h3>Complette GC - one hit will kill</h3>";
+	html += "<div>eHP: "+towerNum(eHP)+"<br />";
+	
+	for(var tier = 1;tier <= 15;tier++)
+	{
+		var level = getWaveFromDmg(tier, eHP,false);
+		var wave = parseInt(level / (1-eals/100) - 100);
+		
+		html+="Tier "+tier+": Level: "+level+", Wave "+wave+"<br />";
+	}
+	
+		
+	for(var league in tourn)
+	{
+		var level = getWaveFromDmg(tourn[league], eHP, true);
+		var wave = parseInt(level / (1-eals/100) - 100);
+		
+		html+=league+": Level: "+level+", Wave "+wave+"<br />";
+	}
+	
+		
+	
+	$('#textresult').html(html);
+	
+}
+
+function getWaveFromDmg(tier, eHP, t)
+{
+	for(var wave = 1;wave<20000;wave++)
+	{
+		var dmg = ENEMYDMG(wave, tier, t);
+		if(dmg > eHP) return wave;
+	}
+	
+	return "too high."
+
+
+
+
+
+}
+
+
+</script>
+
+</head>
+<body>
+<div>
+<a href="https://www.reddit.com/r/TheTowerGame/comments/1m17tlb/ehp_to_gc_estimator_tool/">Link on reddit</a>
+</div>
+<table>
+<tr><td>
+<tr><td>Endgame wall health</td><td> <input type="text" id="wallhealth" value="600T" /> (you can use k,M,B,T,q,Q)</td></tr>
+<tr><td>Def absolute</td><td> <input type="text" id="defabs" value="0" /> (you can use k,M,B,T,q,Q)</td></tr>
+<tr><td>Def%</td><td> <input type="text" id="devperc" value="98" /> %</td></tr>
+<tr><td>Other damage reduction</td><td> <input type="text" id="dmgred" value="0" /> % (permaCF, enemy labs, etc.)</td></tr>
+<tr><td>EALS</td><td><input type="text" id="eals" value="50" /> % (Endgame value, will substract 100 levels for the ramp-up)</td></tr>
+<tr><td>Optional for boss kills</td><td></td></tr>
+<tr><td>Boss hit count</td><td><input type="text" id="bosshits" value="50" /> (use <a href="https://www.reddit.com/r/TheTowerGame/comments/1isboo3/updated_thorns_table_v_15_to_include_new_thorns/">this</a> link to estimate.)</td></tr>
+<tr><td>Optional for mob kills</td><td></td></tr>
+<tr><td>Todo</td><td><input type="text" id="boss hits" value="50" /></td></tr>
+
+</table>
+<br />
+<br />
+<button id="calc" onclick="calc();" >calc</button>
+<br />
+<div id="textresult"></div>
+
+
+
+
+
+</body>
+</html>

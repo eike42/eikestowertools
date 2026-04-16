@@ -1,0 +1,768 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Reddit Results for Tournament placement vs. LTS</title>
+    <!-- jQuery -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jquery/3.7.1/jquery.min.js"></script>
+    <!-- D3.js -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/d3/7.8.5/d3.min.js"></script>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 20px;
+        }
+
+        .chart-container {
+            margin-bottom: 40px;
+            background: #fff;
+            border-radius: 12px;
+            padding: 24px;
+            box-shadow: 0 2px 12px #0004;
+            overflow-x: auto;
+            max-width: 100vw;
+        }
+
+        .chart-container svg {
+            min-width: 600px;
+            display: block;
+        }
+
+        .chart-title {
+            font-size: 1.2em;
+            margin-bottom: 10px;
+            color: #f7c873;
+        }
+
+        /* Responsive styles */
+        @media (max-width: 900px) {
+            .chart-container {
+                padding: 10px;
+            }
+
+            .chart-container svg {
+                min-width: 500px;
+            }
+        }
+
+        @media (max-width: 600px) {
+            body {
+                margin: 4px;
+            }
+
+            .chart-container {
+                padding: 4px;
+                border-radius: 6px;
+            }
+
+            .chart-title {
+                font-size: 1em;
+            }
+
+            #data-table-container,
+            #user-input-container {
+                padding: 8px !important;
+                border-radius: 6px;
+            }
+
+            .chart-container svg {
+                min-width: 350px;
+            }
+        }
+    </style>
+
+    <script>
+        $(document).ready(function () {
+            var dataset = [
+                { "Name": "Conscious-Regret", "Months played": 41, "LTS": 114303, "Placement": 459, "Champ": null },
+                { "Name": "cpp_is_king", "Months played": 8, "LTS": 78196, "Placement": 3546, "Champ": null },
+                { "Name": "eike42", "Months played": 17, "LTS": 32000, "Placement": 4111, "Champ": null },
+                { "Name": "Sheikh777", "Months played": 10, "LTS": 73520, "Placement": 3383, "Champ": null },
+                { "Name": "CaptBen22", "Months played": null, "LTS": 114000, "Placement": 420, "Champ": null },
+                { "Name": "NKnown2000", "Months played": null, "LTS": 49911, "Placement": 2000, "Champ": null },
+                { "Name": "Danielpycroft", "Months played": 43, "LTS": 75304, "Placement": 1450, "Champ": null },
+                { "Name": "SledgeTheHowitzer", "Months played": 28, "LTS": 41787, "Placement": 5900, "Champ": null },
+                { "Name": "RunnerXL", "Months played": 45, "LTS": 187000, "Placement": 503, "Champ": null },
+                { "Name": "Tobiben22", "Months played": null, "LTS": 19344, "Placement": 6300, "Champ": 400 },
+                { "Name": "Kanzu999", "Months played": 29, "LTS": 62518, "Placement": 1035, "Champ": null },
+                { "Name": "Omgplz", "Months played": null, "LTS": 64000, "Placement": 1200, "Champ": null },
+                { "Name": "Glittering_Screen392", "Months played": 31, "LTS": 41457, "Placement": 2484, "Champ": null },
+                { "Name": "Puzzleheaded_Tone_36", "Months played": 38, "LTS": 85000, "Placement": 800, "Champ": null },
+                { "Name": "WK_aetop", "Months played": 22, "LTS": 45000, "Placement": 2900, "Champ": null },
+                { "Name": "Aggressive_Roof488", "Months played": 11, "LTS": 15740, "Placement": 6800, "Champ": 800 },
+                { "Name": "Ghandi_ssz", "Months played": 52, "LTS": 121808, "Placement": 498, "Champ": null },
+                { "Name": "Geobits", "Months played": 34, "LTS": 43272, "Placement": 3228, "Champ": null },
+                { "Name": "Elegant_Mountain_328", "Months played": 12, "LTS": 40000, "Placement": 3100, "Champ": null },
+                { "Name": "ExtrapolatedData", "Months played": 30, "LTS": 105231, "Placement": 429, "Champ": null },
+                { "Name": "MrSnufflewumps", "Months played": 24, "LTS": 91000, "Placement": 1023, "Champ": null },
+                { "Name": "Similar-Republic-115", "Months played": 35, "LTS": 80500, "Placement": 781, "Champ": null },
+                { "Name": "BigBenStl", "Months played": 30, "LTS": 48285, "Placement": 2461, "Champ": null },
+                { "Name": "Palumbo_STN", "Months played": 21, "LTS": 39235, "Placement": 3446, "Champ": null },
+                { "Name": "Raeghnar", "Months played": 41, "LTS": 55986, "Placement": 2057, "Champ": null },
+                { "Name": "MagicKrewL", "Months played": 41, "LTS": 44515, "Placement": 3800, "Champ": null },
+                { "Name": "The81DJ", "Months played": 44, "LTS": 57042, "Placement": 3100, "Champ": null },
+                { "Name": "PM_ME_YR_UNDERBOOBS", "Months played": 14, "LTS": 23932, "Placement": 4775, "Champ": null },
+                { "Name": "t3ntat1ve_", "Months played": 15, "LTS": 53966, "Placement": 4500, "Champ": null },
+                { "Name": "Blah_in_HD", "Months played": 18, "LTS": 22946, "Placement": 5082, "Champ": null },
+                { "Name": "cryguy", "Months played": 25, "LTS": 24539, "Placement": 6808, "Champ": null },
+                { "Name": "Independent_Ad_8536", "Months played": 24, "LTS": 130000, "Placement": 353, "Champ": null },
+                { "Name": "FinalFinishLine", "Months played": 13, "LTS": 19679, "Placement": 5976, "Champ": null },
+                { "Name": "FingerPuzzleheaded81", "Months played": 45, "LTS": 161000, "Placement": 196, "Champ": null },
+                { "Name": "Traditional-Rip-4804", "Months played": 42, "LTS": 99772, "Placement": 593, "Champ": null },
+                { "Name": "Better-Refrigerator5", "Months played": 47, "LTS": 73204, "Placement": 1072, "Champ": null },
+                { "Name": "djl326435", "Months played": 37, "LTS": 77312, "Placement": 1195, "Champ": null },
+                { "Name": "JackfruitPositive", "Months played": null, "LTS": 22000, "Placement": 4870, "Champ": null },
+                { "Name": "alienincognito", "Months played": 15, "LTS": 22607, "Placement": 4968, "Champ": null },
+                { "Name": "Timely-Somewhere-408", "Months played": 16, "LTS": 67768, "Placement": 3157, "Champ": null },
+                {"Name": "popillol", "Months played": 23, "LTS": 38098, "Placement": 3135},
+                {"Name": "Havzzter", "Months played": 40, "LTS": 60300, "Placement": 1271},
+                {"Name": "Volodya_Soldatenkov", "Months played": 30, "LTS": 44969, "Placement": 2681},
+                {"Name": "mariomarine", "Months played": 15, "LTS": 30385, "Placement": 3943},
+                {"Name": "mjuse", "Months played": 45, "LTS": 241567, "Placement": 41},
+                {"Name": "Professional-Egg-590", "Months played": 17, "LTS": 26843, "Placement": 5492},
+                {"Name": "Lord_Jaroh", "Months played": 37, "LTS": 37651, "Placement": 7054},    
+                {"Name": "Salibas_Willy", "Months played": 36, "LTS": 231000, "Placement": 19},    
+				{
+        "Name": "neclitoris",
+        "Months played": 30,
+        "LTS": 44969,
+        "Placement": 2681
+    },
+    {
+        "Name": "Boon",
+        "Months played": 37,
+        "LTS": 37651,
+        "Placement": 7054
+    },
+{
+        "Name": "zura",
+        "Months played": 13,
+        "LTS": 16753,
+        "Placement": 6890
+    },
+    {
+        "Name": "BAR",
+        "Months played": 36,
+        "LTS": 91319,
+        "Placement": 650
+    },
+    {
+        "Name": "Blitzmeister",
+        "Months played": 14,
+        "LTS": 43000,
+        "Placement": 3000
+    },
+    {
+        "Name": "KingsKray",
+        "Months played": 15,
+        "LTS": 23369,
+        "Placement": 7625
+    },
+    {
+        "Name": "Eggs",
+        "Months played": 19,
+        "LTS": 41275,
+        "Placement": 2470
+    },
+    {
+        "Name": "Hoss",
+        "Months played": 18,
+        "LTS": 55000,
+        "Placement": 4000
+    },	
+    {
+        "Name": "Havzztee",
+        "Months played": 40,
+        "LTS": 60300,
+        "Placement": 1271
+    },
+	{
+        "Name": "zura",
+        "Months played": 13,
+        "LTS": 16753,
+        "Placement": 6890
+    },
+    {
+        "Name": "BAR",
+        "Months played": 36,
+        "LTS": 91319,
+        "Placement": 650
+    },
+    {
+        "Name": "Blitzmeister",
+        "Months played": 14,
+        "LTS": 43000,
+        "Placement": 3000
+    },
+    {
+        "Name": "KingsKray",
+        "Months played": 15,
+        "LTS": 23369,
+        "Placement": 7625
+    },
+    {
+        "Name": "Eggs",
+        "Months played": 19,
+        "LTS": 41275,
+        "Placement": 2470
+    },
+    {
+        "Name": "Hoss",
+        "Months played": 18,
+        "LTS": 55000,
+        "Placement": 4000
+    },
+    {
+        "Name": "BAR",
+        "Months played": 36,
+        "LTS": 91844,
+        "Placement": 631
+    },
+    {
+        "Name": "Pino the cat",
+        "Months played": 15,
+        "LTS": 24300,
+        "Placement": 4800
+    },
+    {
+        "Name": "justanothername",
+        "Months played": 16,
+        "LTS": 20000,
+        "Placement": 7500
+    },
+    {
+        "Name": "Gerg",
+        "Months played": 13,
+        "LTS": 28000,
+        "Placement": 5144
+    },
+    {
+        "Name": "trymzet",
+        "Months played": 17,
+        "LTS": 130886,
+        "Placement": 880
+    },
+    {
+        "Name": "trymzet",
+        "Months played": 17,
+        "LTS": 130800,
+        "Placement": 880
+    },
+    {
+        "Name": "private",
+        "Months played": 35,
+        "LTS": 247000,
+        "Placement": 46
+    },
+    {
+        "Name": "oskros",
+        "Months played": 14,
+        "LTS": 22700,
+        "Placement": 7153
+    },
+    {
+        "Name": "Dd",
+        "Months played": 16,
+        "LTS": 20000,
+        "Placement": 7500
+    },
+    {
+        "Name": "Happy",
+        "Months played": 36,
+        "LTS": 75581,
+        "Placement": 1500
+    },
+    {
+        "Name": "chunna",
+        "Months played": 25,
+        "LTS": 33260,
+        "Placement": 3900
+    },
+    {
+        "Name": "astralplanes",
+        "Months played": 37,
+        "LTS": 85227,
+        "Placement": 683
+    },
+    {
+        "Name": "NKnown2000",
+        "Months played": 18,
+        "LTS": 49911,
+        "Placement": 2000
+    },
+    {
+        "Name": "breakfall22",
+        "Months played": 11,
+        "LTS": 36368,
+        "Placement": 6303
+    },
+    {
+        "Name": "NKnown2000",
+        "Months played": 18,
+        "LTS": 49911,
+        "Placement": 2000
+    },
+    {
+        "Name": "Chud",
+        "Months played": 13,
+        "LTS": 88000,
+        "Placement": 1265
+    },
+    {
+        "Name": "ToughItOut",
+        "Months played": 12,
+        "LTS": 69056,
+        "Placement": 3098
+    },
+    {
+        "Name": "Tepsnod",
+        "Months played": 17,
+        "LTS": 132336,
+        "Placement": 1442
+    },
+    {
+        "Name": "SwaggoFlamingo",
+        "Months played": 31,
+        "LTS": 59857,
+        "Placement": 1216
+    },
+    {
+        "Name": "Able_Garage3141",
+        "Months played": 24,
+        "LTS": 49804,
+        "Placement": 1731
+    },
+    {
+        "Name": "Adde",
+        "Months played": 30,
+        "LTS": 51655,
+        "Placement": 2049
+    },
+    {
+        "Name": "CryptoCrash87",
+        "Months played": 36,
+        "LTS": 81075,
+        "Placement": 1500
+    }
+
+            ];
+            let userPoint = null;
+            let highlightedPlayer = null;
+            function updateCharts() {
+                // Chart 1: XY scatter plot
+                const svg1 = d3.select('#chart1 svg');
+                svg1.selectAll('*').remove();
+
+                // Filter out missing values
+                const filtered = dataset.filter(d => d.LTS != null && d.Placement != null && d["Months played"] != null);
+
+                // Scales
+                const margin = { top: 20, right: 30, bottom: 40, left: 60 };
+                const width = 800 - margin.left - margin.right;
+                const height = 400 - margin.top - margin.bottom;
+
+                const x = d3.scaleLinear()
+                    .domain([d3.min(filtered, d => d.LTS), d3.max(filtered, d => d.LTS)])
+                    .range([0, width]);
+
+                const y = d3.scaleLinear()
+                    .domain([d3.max(filtered, d => d.Placement), d3.min(filtered, d => d.Placement)]) // invert
+                    .range([height, 0]);
+
+                const monthsMin = d3.min(filtered, d => d["Months played"]);
+                const monthsMax = d3.max(filtered, d => d["Months played"]);
+                const color = d3.scaleLinear()
+                    .domain([monthsMin, monthsMax])
+                    .range(["red", "green"]);
+
+                const g = svg1.append('g').attr('transform', `translate(${margin.left},${margin.top})`);
+
+                // Axes
+                const axisBottom1 = g.append('g')
+                    .attr('transform', `translate(0,${height})`)
+                    .call(d3.axisBottom(x));
+                const axisLeft1 = g.append('g')
+                    .call(d3.axisLeft(y));
+                axisBottom1.selectAll('path, line').attr('stroke', '#000');
+                axisLeft1.selectAll('path, line').attr('stroke', '#000');
+                axisBottom1.selectAll('text').attr('fill', '#000');
+                axisLeft1.selectAll('text').attr('fill', '#000');
+
+                // Axis labels
+                svg1.append('text')
+                    .attr('x', margin.left + width / 2)
+                    .attr('y', height + margin.top + 35)
+                    .attr('text-anchor', 'middle')
+                    .text('LTS');
+                svg1.append('text')
+                    .attr('transform', `rotate(-90)`)
+                    .attr('x', -margin.top - height / 2)
+                    .attr('y', 15)
+                    .attr('text-anchor', 'middle')
+                    .text('Placement (lower is better)');
+
+                // Points
+                const points = g.selectAll('circle')
+                    .data(filtered)
+                    .enter()
+                    .append('circle')
+                    .attr('cx', d => x(d.LTS))
+                    .attr('cy', d => y(d.Placement))
+                    .attr('r', 6)
+                    .attr('fill', d => color(d["Months played"]))
+                    .attr('stroke', '#333')
+                    .attr('opacity', 0.8);
+                points.append('title')
+                    .text(d => `${d.Name}\nLTS: ${d.LTS}\nPlacement: ${d.Placement}\nMonths played: ${d["Months played"]}`);
+
+                // Color legend for Months played
+                const legendWidth = 350, legendHeight = 24;
+                const legendSvg = d3.select('#color-legend')
+                    .html("")
+                    .append('svg')
+                    .attr('width', legendWidth)
+                    .attr('height', 70);
+
+                // Gradient
+                const defs = legendSvg.append('defs');
+                const linearGradient = defs.append('linearGradient')
+                    .attr('id', 'legend-gradient');
+                linearGradient.append('stop')
+                    .attr('offset', '0%')
+                    .attr('stop-color', 'red');
+                linearGradient.append('stop')
+                    .attr('offset', '100%')
+                    .attr('stop-color', 'green');
+
+                legendSvg.append('rect')
+                    .attr('x', 0)
+                    .attr('y', 18)
+                    .attr('width', legendWidth)
+                    .attr('height', legendHeight)
+                    .style('fill', 'url(#legend-gradient)');
+
+                // Legend labels
+                legendSvg.append('text')
+                    .attr('x', 0)
+                    .attr('y', 15)
+                    .attr('text-anchor', 'start')
+                    .attr('font-size', '15px')
+                    .text(`Months played: ${monthsMin}`);
+                legendSvg.append('text')
+                    .attr('x', legendWidth)
+                    .attr('y', 15)
+                    .attr('text-anchor', 'end')
+                    .attr('font-size', '15px')
+                    .text(`Months played: ${monthsMax}`);
+                legendSvg.append('text')
+                    .attr('x', legendWidth/2)
+                    .attr('y', 65)
+                    .attr('text-anchor', 'middle')
+                    .attr('font-size', '16px')
+                    .text('Red = new, Green = old');
+
+                // Add user point if present
+                if (userPoint) {
+                    // Draw a blue star for the user
+                    g.append('path')
+                        .attr('d', d3.symbol().type(d3.symbolStar).size(300))
+                        .attr('transform', `translate(${x(userPoint.LTS)},${y(userPoint.Placement)})`)
+                        .attr('fill', '#1e90ff')
+                        .attr('stroke', '#23283a')
+                        .attr('stroke-width', 2)
+                        .attr('opacity', 1)
+                        .append('title')
+                        .text(`${userPoint.Name || 'You'}\nLTS: ${userPoint.LTS}\nPlacement: ${userPoint.Placement}\nMonths played: ${userPoint["Months played"]}`);
+                }
+                // Highlight searched player
+                if (highlightedPlayer) {
+                    g.append('path')
+                        .attr('d', d3.symbol().type(d3.symbolStar).size(300))
+                        .attr('transform', `translate(${x(highlightedPlayer.LTS)},${y(highlightedPlayer.Placement)})`)
+                        .attr('fill', '#1e90ff')
+                        .attr('stroke', '#23283a')
+                        .attr('stroke-width', 2)
+                        .attr('opacity', 1)
+                        .append('title')
+                        .text(`${highlightedPlayer.Name}\nLTS: ${highlightedPlayer.LTS}\nPlacement: ${highlightedPlayer.Placement}\nMonths played: ${highlightedPlayer["Months played"]}`);
+                }
+
+                // Chart 2: XY scatter plot (Months played vs LTS)
+                const svg2 = d3.select('#chart2 svg');
+                svg2.selectAll('*').remove();
+                const filtered2 = dataset.filter(d => d["Months played"] != null && d.LTS != null);
+                const margin2 = { top: 40, right: 40, bottom: 60, left: 80 };
+                const width2 = 800 - margin2.left - margin2.right;
+                const height2 = 400 - margin2.top - margin2.bottom;
+                const x2 = d3.scaleLinear()
+                    .domain([d3.min(filtered2, d => d["Months played"]), d3.max(filtered2, d => d["Months played"])]).nice()
+                    .range([0, width2]);
+                const y2 = d3.scaleLinear()
+                    .domain([d3.min(filtered2, d => d.LTS), d3.max(filtered2, d => d.LTS)]).nice()
+                    .range([height2, 0]);
+                const g2 = svg2.append('g').attr('transform', `translate(${margin2.left},${margin2.top})`);
+                g2.append('g')
+                    .attr('transform', `translate(0,${height2})`)
+                    .call(d3.axisBottom(x2));
+                g2.append('g')
+                    .call(d3.axisLeft(y2));
+                svg2.append('text')
+                    .attr('x', margin2.left + width2 / 2)
+                    .attr('y', height2 + margin2.top + 35)
+                    .attr('text-anchor', 'middle')
+                    .text('Months played');
+                svg2.append('text')
+                    .attr('transform', `rotate(-90)`)
+                    .attr('x', -margin2.top - height2 / 2)
+                    .attr('y', 15)
+                    .attr('text-anchor', 'middle')
+                    .text('LTS');
+                const points2 = g2.selectAll('circle')
+                    .data(filtered2)
+                    .enter()
+                    .append('circle')
+                    .attr('cx', d => x2(d["Months played"]))
+                    .attr('cy', d => y2(d.LTS))
+                    .attr('r', 6)
+                    .attr('fill', '#4682b4')
+                    .attr('stroke', '#333')
+                    .attr('opacity', 0.8);
+                points2.append('title')
+                    .text(d => `${d.Name}\nMonths played: ${d["Months played"]}\nLTS: ${d.LTS}`);
+
+                // Axes for Chart 2
+                const axisBottom2 = g2.append('g')
+                    .attr('transform', `translate(0,${height2})`)
+                    .call(d3.axisBottom(x2));
+                const axisLeft2 = g2.append('g')
+                    .call(d3.axisLeft(y2));
+                axisBottom2.selectAll('path, line').attr('stroke', '#000');
+                axisLeft2.selectAll('path, line').attr('stroke', '#000');
+                axisBottom2.selectAll('text').attr('fill', '#000');
+                axisLeft2.selectAll('text').attr('fill', '#000');
+
+                // Render data table
+                function renderDataTable(data) {
+                    const columns = ["Name", "Months played", "LTS", "Placement"];
+                    // Sort by Placement ascending
+                    const sorted = [...data].sort((a, b) => a["Placement"] - b["Placement"]);
+                    let html = '<table style="width:100%; border-collapse:collapse; font-size:1em;">';
+                    html += '<thead><tr>' + columns.map(col => `<th style="border-bottom:2px solid #23283a; padding:8px; text-align:left; color:#23283a; background:#f7c873;">${col}</th>`).join('') + '</tr></thead>';
+                    html += '<tbody>' + sorted.map(row =>
+                        '<tr>' + columns.map(col => `<td style="border-bottom:1px solid #eee; padding:8px; color:#23283a; background:#fff;">${row[col] !== null && row[col] !== undefined ? row[col] : ''}</td>`).join('') + '</tr>'
+                    ).join('') + '</tbody>';
+                    html += '</table>';
+                    $("#data-table").html(html);
+                }
+                renderDataTable(dataset);
+
+                // User input form
+                const userFormHtml = `
+                    <div id="user-input-container" style="background: #fffbe6; border-radius: 10px; padding: 18px 24px 10px 24px; margin-bottom: 32px; box-shadow: 0 1px 6px #0002;">
+                        <h2 style="color: #b8860b; font-size: 1.1em; margin-bottom: 10px;">Compare Your Stats</h2>
+                        <form id="user-data-form" style="display: flex; flex-wrap: wrap; gap: 18px; align-items: flex-end;">
+                            <div>
+                                <label for="user-name" style="color:#23283a;">Name</label><br>
+                                <input id="user-name" type="text" style="padding:4px 8px; border-radius:4px; border:1px solid #bbb; width:120px;">
+                            </div>
+                            <div>
+                                <label for="user-months" style="color:#23283a;">Months played</label><br>
+                                <input id="user-months" type="number" min="0" style="padding:4px 8px; border-radius:4px; border:1px solid #bbb; width:80px;">
+                            </div>
+                            <div>
+                                <label for="user-lts" style="color:#23283a;">LTS</label><br>
+                                <input id="user-lts" type="number" min="0" style="padding:4px 8px; border-radius:4px; border:1px solid #bbb; width:100px;">
+                            </div>
+                            <div>
+                                <label for="user-placement" style="color:#23283a;">Placement</label><br>
+                                <input id="user-placement" type="number" min="0" style="padding:4px 8px; border-radius:4px; border:1px solid #bbb; width:80px;">
+                            </div>
+                            <div style="display:flex; align-items:center; gap:6px; margin-top:8px;">
+                                <input id="user-save-checkbox" type="checkbox" checked style="accent-color:#f7c873; width:18px; height:18px;">
+                                <label for="user-save-checkbox" style="color:#23283a; font-size:0.98em; cursor:pointer;">Allow my data to be saved</label>
+                            </div>
+                            <div>
+                                <button type="submit" style="background:#f7c873; color:#23283a; border:none; border-radius:4px; padding:7px 18px; font-weight:bold; cursor:pointer;">Show on Charts</button>
+                            </div>
+                        </form>
+                        <div id="user-input-message" style="color:#b8860b; margin-top:8px;"></div>
+                    </div>
+                `;
+                $("#user-input-container").html(userFormHtml);
+
+                // Handle user form
+                $('#user-data-form').on('submit', function(e) {
+                    e.preventDefault();
+                    const name = $('#user-name').val();
+                    const months = parseFloat($('#user-months').val());
+                    const lts = parseFloat($('#user-lts').val());
+                    const placement = parseFloat($('#user-placement').val());
+                    const allowSave = $('#user-save-checkbox').is(':checked');
+                    if (isNaN(months) || isNaN(lts) || isNaN(placement)) {
+                        $('#user-input-message').text('Please enter valid numbers for all fields.');
+                        return;
+                    }
+                    userPoint = { Name: name, "Months played": months, LTS: lts, Placement: placement };
+                    $('#user-input-message').text('Your data is now shown on the charts!');
+                    updateCharts();
+                    // Save to server if allowed
+                    if (allowSave) {
+                        fetch('save_user_data.php', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify(userPoint)
+                        })
+                        .then(res => res.json())
+                        .then(data => {
+                            if (!data.success) {
+                                $('#user-input-message').append(' (Could not save to server)');
+                            }
+                        })
+                        .catch(() => {
+                            $('#user-input-message').append(' (Could not save to server)');
+                        });
+                    }
+                });
+
+                // Player search form
+                const playerSearchHtml = `
+                    <div id="player-search-container" style="background: #e6f0ff; border-radius: 10px; padding: 14px 24px 10px 24px; margin-bottom: 24px; box-shadow: 0 1px 6px #0002;">
+                        <form id="player-search-form" style="display: flex; gap: 12px; align-items: flex-end;">
+                            <div>
+                                <label for="player-search" style="color:#23283a;">Search player by name</label><br>
+                                <input id="player-search" type="text" style="padding:4px 8px; border-radius:4px; border:1px solid #bbb; width:160px;" autocomplete="off">
+                                <div id="player-suggestions" style="position:relative; z-index:10;"></div>
+                            </div>
+                            <div>
+                                <button type="submit" style="background:#1e90ff; color:#fff; border:none; border-radius:4px; padding:7px 18px; font-weight:bold; cursor:pointer;">Highlight Player</button>
+                            </div>
+                        </form>
+                        <div id="player-search-message" style="color:#1e90ff; margin-top:8px;"></div>
+                    </div>
+                `;
+                $("#player-search-container").html(playerSearchHtml);
+
+                // Handle player search form
+                $('#player-search-form').on('submit', function(e) {
+                    e.preventDefault();
+                    const searchName = $('#player-search').val().trim().toLowerCase();
+                    highlightedPlayer = null;
+                    if (!searchName) {
+                        $('#player-search-message').text('Please enter a player name.');
+                        updateCharts();
+                        return;
+                    }
+                    const found = dataset.find(d => d.Name && d.Name.toLowerCase() === searchName);
+                    if (found) {
+                        highlightedPlayer = found;
+                        $('#player-search-message').text(`Player "${found.Name}" is highlighted on the charts.`);
+                    } else {
+                        $('#player-search-message').text('Player not found.');
+                    }
+                    updateCharts();
+                });
+
+                // Autosuggest for player search
+                $('#player-search').on('input', function() {
+                    const val = $(this).val().toLowerCase();
+                    let suggestions = [];
+                    if (val.length > 0) {
+                        suggestions = dataset
+                            .filter(d => d.Name && d.Name.toLowerCase().includes(val))
+                            .map(d => d.Name)
+                            .slice(0, 8);
+                    }
+                    const $suggestions = $('#player-suggestions');
+                    if (suggestions.length > 0) {
+                        $suggestions.html('<div style="position:absolute; background:#fff; border:1px solid #bbb; border-radius:4px; box-shadow:0 2px 8px #0002; width:160px;">' +
+                            suggestions.map(name => `<div class="suggestion-item" style="padding:6px 10px; cursor:pointer; color:#23283a;">${name}</div>`).join('') + '</div>');
+                        $('.suggestion-item').on('mousedown', function(e) {
+                            e.preventDefault();
+                            $('#player-search').val($(this).text());
+                            $suggestions.empty();
+                        });
+                    } else {
+                        $suggestions.empty();
+                    }
+                });
+                // Hide suggestions on blur
+                $('#player-search').on('blur', function() {
+                    setTimeout(() => { $('#player-suggestions').empty(); }, 150);
+                });
+            }
+            // Initial render
+            updateCharts();
+        });
+    </script>
+</head>
+
+<body style="background: #181c24; color: #e0e6f0; font-family: 'Segoe UI', Arial, sans-serif;">
+    <div style="max-width: 1100px; margin: 0 auto; padding: 30px 20px 10px 20px; background: #23283a; border-radius: 16px; box-shadow: 0 4px 24px #0006;">
+        <div style="padding-bottom: 24px; border-bottom: 2px solid #3a4157; margin-bottom: 32px;">
+            <h1 style="font-size: 2.5em; color: #f7c873; margin-bottom: 0.2em; font-family: 'Segoe UI', Arial, sans-serif; letter-spacing: 2px;">Reddit Results for Tournament placement vs. LTS</h1>
+            <p style="font-size: 1.15em; color: #e0e6f0; margin-top: 0.5em; max-width: 900px;">
+                This is the results of the questionaire for players done <a href="https://www.reddit.com/r/TheTowerGame/comments/1pepck3/competition_who_is_the_pound_for_pound_tower_champ/" target="_blank" style="color: #f7c873; text-decoration: underline;">here</a>.<br>
+                If you have any questions or suggestions, feel free to reach out on Reddit!
+            </p>
+        </div>
+        <div id="user-input-container" style="background: #fffbe6; border-radius: 10px; padding: 18px 24px 10px 24px; margin-bottom: 32px; box-shadow: 0 1px 6px #0002;">
+            <h2 style="color: #b8860b; font-size: 1.1em; margin-bottom: 10px;">Compare Your Stats</h2>
+            <form id="user-data-form" style="display: flex; flex-wrap: wrap; gap: 18px; align-items: flex-end;">
+                <div>
+                    <label for="user-name" style="color:#23283a;">Name</label><br>
+                    <input id="user-name" type="text" style="padding:4px 8px; border-radius:4px; border:1px solid #bbb; width:120px;">
+                </div>
+                <div>
+                    <label for="user-months" style="color:#23283a;">Months played</label><br>
+                    <input id="user-months" type="number" min="0" style="padding:4px 8px; border-radius:4px; border:1px solid #bbb; width:80px;">
+                </div>
+                <div>
+                    <label for="user-lts" style="color:#23283a;">LTS</label><br>
+                    <input id="user-lts" type="number" min="0" style="padding:4px 8px; border-radius:4px; border:1px solid #bbb; width:100px;">
+                </div>
+                <div>
+                    <label for="user-placement" style="color:#23283a;">Placement</label><br>
+                    <input id="user-placement" type="number" min="0" style="padding:4px 8px; border-radius:4px; border:1px solid #bbb; width:80px;">
+                </div>
+                <div style="display:flex; align-items:center; gap:6px; margin-top:8px;">
+                    <input id="user-save-checkbox" type="checkbox" checked style="accent-color:#f7c873; width:18px; height:18px;">
+                    <label for="user-save-checkbox" style="color:#23283a; font-size:0.98em; cursor:pointer;">Allow my data to be saved on the server</label>
+                </div>
+                <div>
+                    <button type="submit" style="background:#f7c873; color:#23283a; border:none; border-radius:4px; padding:7px 18px; font-weight:bold; cursor:pointer;">Show on Charts</button>
+                </div>
+            </form>
+            <div id="user-input-message" style="color:#b8860b; margin-top:8px;"></div>
+        </div>
+        <div id="player-search-container" style="background: #e6f0ff; border-radius: 10px; padding: 14px 24px 10px 24px; margin-bottom: 24px; box-shadow: 0 1px 6px #0002;">
+            <form id="player-search-form" style="display: flex; gap: 12px; align-items: flex-end;">
+                <div>
+                    <label for="player-search" style="color:#23283a;">Search player by name</label><br>
+                    <input id="player-search" type="text" style="padding:4px 8px; border-radius:4px; border:1px solid #bbb; width:160px;" autocomplete="off">
+                    <div id="player-suggestions" style="position:relative; z-index:10;"></div>
+                </div>
+                <div>
+                    <button type="submit" style="background:#1e90ff; color:#fff; border:none; border-radius:4px; padding:7px 18px; font-weight:bold; cursor:pointer;">Highlight Player</button>
+                </div>
+            </form>
+            <div id="player-search-message" style="color:#1e90ff; margin-top:8px;"></div>
+        </div>
+        <div id="chart1" class="chart-container" style="background: #fff; border-radius: 12px; padding: 24px; margin-bottom: 40px; box-shadow: 0 2px 12px #0004;">
+            <div class="chart-title" style="color: #f7c873; font-size: 1.3em; margin-bottom: 10px;">Chart 1: LTS vs Placement</div>
+            <svg width="900" height="500"></svg>
+            <div id="color-legend" style="margin-top:10px;"></div>
+        </div>
+        <div id="chart2" class="chart-container" style="background: #fff; border-radius: 12px; padding: 24px; margin-bottom: 40px; box-shadow: 0 2px 12px #0004;">
+            <div class="chart-title" style="color: #f7c873; font-size: 1.3em; margin-bottom: 10px;">Chart 2: Months played vs LTS</div>
+            <svg width="800" height="400"></svg>
+        </div>
+    </div>
+    <div id="data-table-container" style="max-width: 1100px; margin: 40px auto 20px auto; background: #fff; border-radius: 12px; box-shadow: 0 2px 12px #0004; padding: 24px;">
+        <h2 style="color: #23283a; font-size: 1.3em; margin-bottom: 18px;">Player Data Table</h2>
+        <div id="data-table"></div>
+    </div>
+</body>
+
+</html>

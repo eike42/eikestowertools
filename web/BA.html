@@ -1,0 +1,60 @@
+<html>
+<head>
+<script
+  src="https://code.jquery.com/jquery-3.7.1.min.js"
+  integrity="sha256-/JqT3SQfawRcv/BIHPThkBvs0OEvtFFmqPF/lYI/Cxo="
+  crossorigin="anonymous"></script>
+<script>
+
+function realSA(cc, basen)
+{
+console.log(cc,basen);
+	iter= 100000;
+	c = 0; 
+	n = 0; 
+
+	for(var i=0;i<iter;i++) 
+	{
+		if(n>0)
+		{
+			n--;
+			c++;
+		} 
+		else if(Math.random() < cc) 
+		{ 
+			c++; n=basen;
+		}
+	}
+
+	return (c/iter);
+}
+
+function calc()
+{
+	var html="<table><tr><td>SCrit-Chance</td><td>Rare BA</td><td>Legendary BA</td><td>Mythid BA</td><td>E. BA</td></tr>";
+	for(i=1;i<1000;i++)
+	{
+		html += "<tr><td>"+(i/10).toLocaleString("de") + "%</td>";
+		html += "<td>" + (100*realSA(i/1000, 3)).toLocaleString("de")+"%</td>";
+		html += "<td>" + (100*realSA(i/1000, 4)).toLocaleString("de")+"%</td>";
+		html += "<td>" + (100*realSA(i/1000, 5)).toLocaleString("de")+"%</td>";
+		html += "<td>" + (100*realSA(i/1000, 6)).toLocaleString("de")+"%</td>";
+		html +="</tr>";
+	}
+	html+="</table>";
+	$('#res').html(html);	
+
+}
+
+</script>
+</head>
+
+
+<body>
+
+<button onclick="calc();">Calc</button>
+<div id="res">
+
+</div>
+</body>
+</html>

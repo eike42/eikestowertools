@@ -1,0 +1,467 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Tower Hist Progress Tracker</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 2em; }
+        textarea { width: 100%; height: 300px; }
+        table { border-collapse: collapse; margin-top: 1em; }
+        .chart-container { margin-top: 2em; }
+        .d3-chart { width: 100%; height: 300px; }
+        th, td { border: 1px solid #ccc; padding: 4px 8px; }
+        th { background: #eee; }
+        .progress { margin-top: 2em; }
+    </style>
+</head>
+<body>
+    <h1>Tower Hist Progress Tracker</h1>
+    <p>Paste your game stats below and click "Save & Show Progress".</p>
+    <textarea id="dataInput" placeholder="Paste your stats here..."></textarea>
+    <br>
+    <input id="commentInput" type="text" placeholder="Comment for this run..." style="width:100%;margin-top:0.5em;">
+    <br>
+    <button id="saveBtn">Save & Show Progress</button>
+    <div class="progress" id="progress"></div>
+    <div class="chart-container">
+        <h2>Progress Charts</h2>
+        <div id="charts"></div>
+    </div>
+
+    <script src="https://d3js.org/d3.v7.min.js"></script>
+    <script>
+        function towerNum(num)
+        {
+            l10 = Math.log10(Math.abs(num));
+            if(l10<5) return num.toFixed(2);
+            if(l10<6) return (num/1000).toFixed(2)+"k";
+            if(l10<9) return (num/1000000).toFixed(2)+"M";
+            if(l10<12) return (num/1000000000).toFixed(2)+"B";
+            if(l10<15) return (num/1000000000000).toFixed(2)+"T";
+            if(l10<18) return (num/1000000000000000).toFixed(2)+"q";
+            if(l10<21) return (num/1000000000000000000).toFixed(2)+"Q";
+            if(l10<24) return (num/1000000000000000000000).toFixed(2)+"s";
+            if(l10<27) return (num/1e24).toFixed(2)+"S";
+            if(l10<30) return (num/1e27).toFixed(2)+"O";
+            if(l10<33) return (num/1e30).toFixed(2)+"N";
+            if(l10<36) return (num/1e33).toFixed(2)+"D";
+            
+            return (num/1e33).toFixed(2)+"D";
+            
+            
+            
+            
+        }
+        // Parse the stats block into an object
+        function parseStats(text) {
+            // Local parseTower function (copy from towercalc.js)
+            function parseTower(s) {
+                s = s.trim();
+                var val = s.slice(0, -1);
+                var mult = s.slice(-1);
+                var value = parseFloat(val);
+                switch (mult) {
+                    case "k": value *= 1e3; break;
+                    case "K": value *= 1e3; break;
+                    case "M": value *= 1e6; break;
+                    case "B": value *= 1e9; break;
+                    case "T": value *= 1e12; break;
+                    case "q": value *= 1e15; break;
+                    case "Q": value *= 1e18; break;
+                    case "s": value *= 1e21; break;
+                    case "S": value *= 1e24; break;
+                    case "O": value *= 1e27; break;
+                    case "N": value *= 1e30; break;
+                    case "D": value *= 1e33; break;
+                }
+                return value;
+            }
+
+            // Parse time strings like "1h 23m 45s" to minutes
+            function parseTime(str) {
+                let min = 0;
+                let d = str.match(/(\d+)\s*d/);
+                let h = str.match(/(\d+)\s*h/);
+                let m = str.match(/(\d+)\s*m/);
+                let s = str.match(/(\d+)\s*s/);
+                if (d) min += parseInt(d[1], 10) * 60 * 24;
+                if (h) min += parseInt(h[1], 10) * 60;
+                if (m) min += parseInt(m[1], 10);
+                if (s) min += parseInt(s[1], 10) / 60;
+                return min;
+            }
+
+            const lines = text.split('\n').map(l => l.trim());
+            const stats = {};
+            for (const line of lines) {
+                // Match: key (possibly multiple words) + value (number/unit or time)
+                const match = line.match(/^(.+?)\s+(\$?x?[0-9.,]+[KMBTqQsSOND]?)$/i);
+                const timeMatch = line.match(/^(Game Time|Real Time)\s*(.*)$/i);
+                const killedByMatch = line.match(/^Killed by \s*(.*)$/i);
+                if(timeMatch)
+                {
+                    let key = timeMatch[1].trim();
+                    let valueStr = timeMatch[2].trim();
+
+                    // handle Game time and Real time
+                    let value = parseTime(valueStr);
+                    stats[key] = value;
+
+                } else if (match) {
+                    let key = match[1].trim();
+                    let valueStr = match[2].replace(/,/g, '.').replace(/x/g, '').replace(/\$/g, '').trim();
+                    let value;
+                    if (/[KMBTqQsSOND]$/.test(valueStr)) {
+                        value = parseTower(valueStr);
+                        stats[key] = value;
+                    } else if (/^\d+(\.\d+)?$/.test(valueStr)) {
+                        value = parseFloat(valueStr);
+                        stats[key] = value;
+                    }
+                }
+                else if (killedByMatch)
+                {
+                    // handle "Killed by"
+                    stats['Killed by'] = killedByMatch[1].trim();
+                } else {
+                    console.warn(`Unrecognized line format: ${line}`);
+                }
+            }
+            return stats;
+        }
+
+        // Save stats to server via POST, now includes comment
+        function saveStatsToServer(stats, comment, callback) {
+            fetch('data.php', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ time: Date.now(), stats, comment })
+            })
+            .then(res => res.json())
+            .then(data => { if (callback) callback(data); })
+            .catch(() => { if (callback) callback(null); });
+        }
+
+        // Load stats history from server via GET
+        function loadHistoryFromServer(callback) {
+            fetch('data.php')
+                .then(res => res.json())
+                .then(data => callback(Array.isArray(data) ? data : []))
+                .catch(() => callback([]));
+        }
+
+        // Show progress table
+        function showProgress(history) {
+            if (!history || history.length === 0) {
+                document.getElementById('progress').innerHTML = '<p>No progress saved yet.</p>';
+                return;
+            }
+            const keys = [
+                'Tier', 'Wave','Game Time',  'Coins Earned', 'Cells Earned','Total Enemies'
+                        ];
+            let html = '<table><tr><th>Date</th>';
+            for (const key of keys) html += `<th>${key}</th>`;
+            html += '</tr>';
+            for (const entry of history) {
+                const date = new Date(entry.time).toLocaleString();
+                html += `<tr><td>${date}</td>`;
+                for (const key of keys) {
+                    try {
+                    let val = entry.stats[key] > 1000 ? towerNum(entry.stats[key]) : entry.stats[key];
+                    html += `<td>${val}</td>`;
+                    } catch (e) {
+                        html += '<td>N/A</td>';
+                    }
+                }
+                html += '</tr>';
+            }
+            html += '</table>';
+            document.getElementById('progress').innerHTML = html;
+        }
+
+        // Chart keys to plot (label, stat key)
+        const chartKeys = [
+            { label: "Wave", key: "Wave" },
+            { label: "Tier", key: "Tier" },
+            { label: "Coins Earned", key: "Coins Earned" },
+            { label: "Cells Earned", key: "Cells Earned" }
+        ];
+
+        function showCharts(history) {
+            const container = d3.select("#charts");
+            container.html(""); // Clear previous
+            if (!history || history.length < 2) {
+                container.append("p").text("Not enough data for charts.");
+                return;
+            }
+            chartKeys.forEach(({ label, key }) => {
+                const data = history
+                    .map(d => ({
+                        date: new Date(d.time),
+                        value: d.stats[key]
+                    }))
+                    .filter(d => typeof d.value === "number" && !isNaN(d.value));
+                if (data.length < 2) return;
+                const width = 400, height = 200, margin = { top: 20, right: 20, bottom: 30, left: 50 };
+                const svg = container.append("div")
+                    .attr("class", "d3-chart")
+                    .append("svg")
+                    .attr("width", width)
+                    .attr("height", height);
+                const x = d3.scaleTime()
+                    .domain(d3.extent(data, d => d.date))
+                    .range([margin.left, width - margin.right]);
+                const y = d3.scaleLinear()
+                    .domain([d3.min(data, d => d.value), d3.max(data, d => d.value)]).nice()
+                    .range([height - margin.bottom, margin.top]);
+                const line = d3.line()
+                    .x(d => x(d.date))
+                    .y(d => y(d.value));
+                svg.append("g")
+                    .attr("transform", `translate(0,${height - margin.bottom})`)
+                    .call(d3.axisBottom(x).ticks(5));
+                svg.append("g")
+                    .attr("transform", `translate(${margin.left},0)`)
+                    .call(d3.axisLeft(y).ticks(5));
+                svg.append("path")
+                    .datum(data)
+                    .attr("fill", "none")
+                    .attr("stroke", "#0074d9")
+                    .attr("stroke-width", 2)
+                    .attr("d", line);
+                svg.append("text")
+                    .attr("x", width / 2)
+                    .attr("y", margin.top)
+                    .attr("text-anchor", "middle")
+                    .attr("font-size", "14px")
+                    .attr("font-weight", "bold")
+                    .text(label);
+            });
+        }
+
+        // Show all stats table, now includes comment column
+function showAllStatsTable(history) {
+    if (!history || history.length === 0) {
+        // Add a new div if not present
+        if (!document.getElementById('allStats')) {
+            const div = document.createElement('div');
+            div.id = 'allStats';
+            document.body.appendChild(div);
+        }
+        document.getElementById('allStats').innerHTML = '<p>No data available.</p>';
+        return;
+    }
+    // Collect all unique stat keys
+    const allKeys = new Set();
+    history.forEach(entry => {
+        Object.keys(entry.stats).forEach(k => allKeys.add(k));
+    });
+    const keys = Array.from(allKeys);
+
+    // Build table HTML
+    let html = '<h2>All Stats Table</h2><div style="overflow-x:auto"><table><tr><th>Date</th>';
+    for (const key of keys) html += `<th>${key}</th>`;
+    html += '<th>Comment</th></tr>';
+    for (const entry of history) {
+        const date = new Date(entry.time).toLocaleString();
+        html += `<tr><td>${date}</td>`;
+        for (const key of keys) {
+            let val = entry.stats[key];
+            if (typeof val === "number" && val > 1000) val = towerNum(val);
+            if (val === undefined) val = '';
+            html += `<td>${val}</td>`;
+        }
+        html += `<td>${entry.comment ? entry.comment : ''}</td>`;
+        html += '</tr>';
+    }
+    html += '</table></div>';
+
+    // Add a new div if not present
+    if (!document.getElementById('allStats')) {
+        const div = document.createElement('div');
+        div.id = 'allStats';
+        document.body.appendChild(div);
+    }
+    document.getElementById('allStats').innerHTML = html;
+}
+
+// New function to show damage distribution stacked/grouped
+function showDamageStackedGrouped(history) {
+    // 1. Find all damage keys (case-insensitive, contains "damage")
+    const damageKeys = new Set();
+    history.forEach(entry => {
+        Object.keys(entry.stats).forEach(k => {
+            if (/damage/i.test(k)
+                && !['Damage Dealt', 'Damage'].includes(k) // Exclude total damage keys
+                && !k.includes('Taken') 
+                && !k.includes('Gain') 
+                && !k.includes('Flame') 
+        
+            )
+            damageKeys.add(k);
+
+            
+        });
+    });
+    const keys = Array.from(damageKeys);
+    if (keys.length < 2) return; // Need at least 2 types for stacking
+
+    // 2. Prepare data: for each run, get date and all damage values
+    const data = history.map(entry => {
+        const total = keys.reduce((sum, k) => sum + (Number(entry.stats[k]) || 0), 0);
+        const obj = { date: new Date(entry.time) };
+        keys.forEach(k => {
+            obj[k] = total > 0 ? (Number(entry.stats[k]) || 0) / total : 0;
+        });
+        return obj;
+    });
+
+    // 3. D3 stack layout
+    const container = d3.select("#charts");
+    container.append("h3").text("Damage Distribution (Stacked/Grouped % of Total Damage)");
+
+
+    const legendWidth = 160;
+    const width = 800 + legendWidth, height = 300, margin = { top: 30, right: 20, bottom: 40, left: 60 };
+    const chartWidth = width - legendWidth - margin.right;
+
+    const svg = container.append("div")
+        .attr("class", "d3-chart")
+        .append("svg")
+        .attr("width", width)
+        .attr("height", height);
+
+    // X scale: runs (date)
+    const x0 = d3.scaleBand()
+        .domain(data.map(d => d.date))
+        .range([margin.left, chartWidth])
+        .paddingInner(0.1);
+
+    // X1 for grouped
+    const x1 = d3.scaleBand()
+        .domain(keys)
+        .range([0, x0.bandwidth()])
+        .padding(0.05);
+
+    // Y scale: percent
+    const y = d3.scaleLinear()
+        .domain([0, 1])
+        .range([height - margin.bottom, margin.top]);
+
+    // Color
+    const color = d3.scaleOrdinal()
+        .domain(keys)
+        .range(d3.schemePaired);
+
+    // Stack generator
+    const stack = d3.stack()
+        .keys(keys)
+        .order(d3.stackOrderNone)
+        .offset(d3.stackOffsetNone);
+
+    const series = stack(data);
+
+    // Draw stacked bars (default)
+    svg.selectAll("g.damageStack")
+        .data(series)
+        .join("g")
+        .attr("class", "damageStack")
+        .attr("fill", d => color(d.key))
+        .selectAll("rect")
+        .data(d => d)
+        .join("rect")
+        .attr("x", (d, i) => x0(data[i].date))
+        .attr("y", d => y(d[1]))
+        .attr("height", d => y(d[0]) - y(d[1]))
+        .attr("width", x0.bandwidth());
+
+    // X axis
+    svg.append("g")
+        .attr("transform", `translate(0,${height - margin.bottom})`)
+        .call(d3.axisBottom(x0).tickFormat(d3.timeFormat("%m/%d %H:%M")).ticks(6))
+        .selectAll("text")
+        .attr("transform", "rotate(30)")
+        .style("text-anchor", "start");
+
+    // Y axis
+    svg.append("g")
+        .attr("transform", `translate(${margin.left},0)`)
+        .call(d3.axisLeft(y).tickFormat(d3.format(".0%")));
+
+    // Legend (now to the right of the chart area)
+    const legend = svg.append("g")
+        .attr("transform", `translate(${chartWidth + 30},${margin.top})`);
+    keys.forEach((k, i) => {
+        legend.append("rect")
+            .attr("x", 0)
+            .attr("y", i * 18)
+            .attr("width", 16)
+            .attr("height", 16)
+            .attr("fill", color(k));
+        legend.append("text")
+            .attr("x", 22)
+            .attr("y", i * 18 + 13)
+            .text(k)
+            .style("font-size", "13px");
+    });
+
+    // Toggle button for grouped/stacked
+    let grouped = false;
+    const btn = container.append("button")
+        .text("Switch to Grouped")
+        .style("margin-bottom", "1em")
+        .on("click", function() {
+            grouped = !grouped;
+            d3.select(this).text(grouped ? "Switch to Stacked" : "Switch to Grouped");
+            if (grouped) {
+                // Grouped bars
+                svg.selectAll("g.damageStack").selectAll("rect")
+                    .transition()
+                    .duration(600)
+                    .attr("x", (d, i, nodes) => {
+                        const key = d3.select(nodes[i].parentNode).datum().key;
+                        return x0(data[i].date) + x1(key);
+                    })
+                    .attr("width", x1.bandwidth())
+                    .attr("y", d => y(d[1] - d[0]))
+                    .attr("height", d => y(0) - y(d[1] - d[0]));
+            } else {
+                // Stacked bars
+                svg.selectAll("g.damageStack").selectAll("rect")
+                    .transition()
+                    .duration(600)
+                    .attr("x", (d, i) => x0(data[i].date))
+                    .attr("width", x0.bandwidth())
+                    .attr("y", d => y(d[1]))
+                    .attr("height", d => y(d[0]) - y(d[1]));
+            }
+        });
+}
+
+// Update both table and charts from server
+        function updateProgressAndCharts() {
+            loadHistoryFromServer(function(history) {
+                window.data = history; // Store for later use
+                showProgress(history);
+                showCharts(history);
+                showDamageStackedGrouped(history); // <-- Add this line
+                showAllStatsTable(history);
+            });
+        }
+
+        // Button handler
+        document.getElementById('saveBtn').onclick = function() {
+            const text = document.getElementById('dataInput').value;
+            const comment = document.getElementById('commentInput').value;
+            if (!text.trim()) return;
+            const stats = parseStats(text);
+            saveStatsToServer(stats, comment, function() {
+                updateProgressAndCharts();
+            });
+        };
+
+        // Show progress and charts on load
+        updateProgressAndCharts();
+    </script>
+</body>
+</html>

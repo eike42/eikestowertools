@@ -1,0 +1,1421 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+	<meta charset="UTF-8">
+	<meta name="viewport" content="width=device-width, initial-scale=1.0">
+	<title>Run Analyzer</title>
+	<style>
+		:root {
+			--bg: #f5f7fb;
+			--panel: #ffffff;
+			--panel-2: #f0f3fa;
+			--text: #172033;
+			--muted: #52607a;
+			--line: #d8e0ef;
+			--accent: #1757d6;
+			--accent-2: #0e44b0;
+			--ok: #1c8b4a;
+			--warn: #b57600;
+		}
+
+		* {
+			box-sizing: border-box;
+		}
+
+		body {
+			margin: 0;
+			font-family: "Segoe UI", "Trebuchet MS", sans-serif;
+			background:
+				radial-gradient(circle at 8% 5%, #ffffff 0%, transparent 32%),
+				radial-gradient(circle at 92% 95%, #e9f0ff 0%, transparent 36%),
+				var(--bg);
+			color: var(--text);
+		}
+
+		.app {
+			max-width: 1180px;
+			margin: 26px auto;
+			padding: 0 16px 30px;
+		}
+
+		.title {
+			margin: 0 0 8px;
+			font-size: 32px;
+			letter-spacing: 0.2px;
+		}
+
+		.subtitle {
+			margin: 0 0 20px;
+			color: var(--muted);
+		}
+
+		.grid {
+			display: grid;
+			grid-template-columns: 1.15fr 1fr;
+			gap: 14px;
+		}
+
+		.panel {
+			background: var(--panel);
+			border: 1px solid var(--line);
+			border-radius: 12px;
+			padding: 14px;
+			box-shadow: 0 10px 24px rgba(23, 35, 57, 0.06);
+		}
+
+		.panel h2 {
+			margin: 0 0 10px;
+			font-size: 18px;
+		}
+
+		.muted {
+			color: var(--muted);
+		}
+
+		textarea {
+			width: 100%;
+			min-height: 350px;
+			border-radius: 10px;
+			border: 1px solid var(--line);
+			background: #fbfcff;
+			padding: 10px;
+			resize: vertical;
+			font: 13px/1.45 Consolas, "Courier New", monospace;
+			color: var(--text);
+		}
+
+		label {
+			display: block;
+			margin-bottom: 6px;
+			font-size: 13px;
+			color: var(--muted);
+		}
+
+		.form-row {
+			display: grid;
+			grid-template-columns: repeat(2, minmax(0, 1fr));
+			gap: 10px;
+			margin-top: 10px;
+		}
+
+		.field,
+		select,
+		input[type="number"],
+		input[type="text"] {
+			width: 100%;
+			border: 1px solid var(--line);
+			border-radius: 9px;
+			background: #fbfcff;
+			padding: 8px 9px;
+			color: var(--text);
+			font-size: 14px;
+		}
+
+		.controls {
+			margin-top: 12px;
+			display: flex;
+			flex-wrap: wrap;
+			gap: 10px;
+		}
+
+		.controls button:disabled {
+			opacity: 0.55;
+			cursor: not-allowed;
+		}
+
+		button {
+			border: 0;
+			border-radius: 9px;
+			padding: 9px 14px;
+			background: var(--accent);
+			color: white;
+			cursor: pointer;
+			font-weight: 600;
+		}
+
+		button:hover {
+			background: var(--accent-2);
+		}
+
+		.secondary {
+			background: #dfe7fb;
+			color: #153065;
+		}
+
+		.secondary:hover {
+			background: #ccd9fb;
+		}
+
+		.kpi-grid {
+			display: grid;
+			grid-template-columns: repeat(2, minmax(0, 1fr));
+			gap: 9px;
+			margin-bottom: 12px;
+		}
+
+		.kpi {
+			border: 1px solid var(--line);
+			border-radius: 10px;
+			padding: 9px 10px;
+			background: var(--panel-2);
+		}
+
+		.kpi .k {
+			margin: 0;
+			color: var(--muted);
+			font-size: 12px;
+		}
+
+		.kpi .v {
+			margin: 4px 0 0;
+			font-size: 20px;
+			font-weight: 700;
+			letter-spacing: 0.15px;
+		}
+
+		.status {
+			margin: 8px 0 0;
+			font-size: 13px;
+			color: var(--muted);
+		}
+
+		.status.ok {
+			color: var(--ok);
+		}
+
+		.status.warn {
+			color: var(--warn);
+		}
+
+		.table-wrap {
+			margin-top: 10px;
+			max-height: 360px;
+			overflow: auto;
+			border: 1px solid var(--line);
+			border-radius: 10px;
+		}
+
+		table {
+			width: 100%;
+			border-collapse: collapse;
+			font-size: 13px;
+		}
+
+		th,
+		td {
+			padding: 7px 8px;
+			border-bottom: 1px solid var(--line);
+			text-align: left;
+			white-space: nowrap;
+		}
+
+		th {
+			position: sticky;
+			top: 0;
+			background: #edf2ff;
+		}
+
+		.debug {
+			margin-top: 12px;
+			border-radius: 10px;
+			border: 1px solid var(--line);
+			background: #f8faff;
+			padding: 10px;
+			max-height: 230px;
+			overflow: auto;
+			font: 12px/1.4 Consolas, "Courier New", monospace;
+		}
+
+		details.analyzer-section {
+			margin-top: 10px;
+			border: 1px solid var(--line);
+			border-radius: 10px;
+			background: #fbfcff;
+		}
+
+		details.analyzer-section > summary {
+			cursor: pointer;
+			padding: 9px 10px;
+			font-weight: 600;
+			background: #f2f6ff;
+			border-radius: 10px;
+		}
+
+		.section-body {
+			padding: 10px;
+		}
+
+		.output-box {
+			margin-top: 9px;
+			padding: 9px;
+			border: 1px solid var(--line);
+			border-radius: 8px;
+			background: #ffffff;
+			font-size: 13px;
+		}
+
+		.graph-box {
+			margin-top: 9px;
+			padding: 9px;
+			border: 1px solid var(--line);
+			border-radius: 8px;
+			background: #ffffff;
+		}
+
+		.bar-track {
+			height: 12px;
+			background: #e9eefb;
+			border-radius: 999px;
+			overflow: hidden;
+		}
+
+		.bar-fill {
+			height: 100%;
+			background: #1757d6;
+		}
+
+		@media (max-width: 960px) {
+			.grid {
+				grid-template-columns: 1fr;
+			}
+
+			.kpi-grid {
+				grid-template-columns: 1fr;
+			}
+		}
+	</style>
+</head>
+<body>
+<div class="app">
+	<h1 class="title">Run Analyzer</h1>
+	<p class="subtitle">Local first version: paste run data, analyze it, and review metrics plus parsed values.</p>
+
+	<div class="grid">
+		<section class="panel">
+			<h2>Input</h2>
+			<label for="runInput">Run Text</label>
+			<textarea id="runInput" placeholder="Paste the full run report here..."></textarea>
+
+			<div class="controls">
+				<button id="parseBtn">1) Parse Run Data</button>
+				<button id="loadExampleBtn" class="secondary">Load Example</button>
+				<button id="clearBtn" class="secondary">Clear Input</button>
+			</div>
+			<p id="status" class="status">Ready.</p>
+
+			<h2 style="margin-top:14px;">General Overview</h2>
+			<div id="generalKpiGrid" class="kpi-grid"></div>
+			<div id="meta" class="muted"></div>
+
+			<div class="table-wrap">
+				<table>
+					<thead>
+					<tr>
+						<th>Category</th>
+						<th>Stat</th>
+						<th>Value</th>
+					</tr>
+					</thead>
+					<tbody id="statsBody">
+					<tr>
+						<td colspan="3" class="muted">No analysis run yet.</td>
+					</tr>
+					</tbody>
+				</table>
+			</div>
+
+			<h2 style="margin-top:12px;">Parser Debug</h2>
+			<div id="debugOut" class="debug">No run processed.</div>
+		</section>
+
+		<section class="panel">
+			<h2>Evaluation Sections</h2>
+
+			<details id="sectionAbilities" class="analyzer-section">
+				<summary>UW eco analysis</summary>
+				<div class="section-body">
+					<label style="margin-top:2px; display:flex; align-items:center; gap:8px;">
+						<input id="syncCooldowns" type="checkbox">
+						<span>cooldowns are synchronized</span>
+					</label>
+
+					<div id="sharedCooldownRow" class="form-row" style="display:none;">
+						<div>
+							<label for="sharedCooldown">Shared Cooldown (s)</label>
+							<input id="sharedCooldown" type="number" min="0" step="1" value="0">
+						</div>
+						<div></div>
+					</div>
+
+					<div class="form-row">
+						<div>
+							<label for="gtDuration">Golden Tower Duration (s)</label>
+							<input id="gtDuration" type="number" min="0" step="1" value="0">
+						</div>
+						<div class="cooldown-field">
+							<label for="gtCooldown">Golden Tower Cooldown (s)</label>
+							<input id="gtCooldown" type="number" min="0" step="1" value="0">
+						</div>
+					</div>
+
+					<div class="form-row">
+						<div>
+							<label for="bhDuration">Black Hole Duration (s)</label>
+							<input id="bhDuration" type="number" min="0" step="1" value="0">
+						</div>
+						<div class="cooldown-field">
+							<label for="bhCooldown">Black Hole Cooldown (s)</label>
+							<input id="bhCooldown" type="number" min="0" step="1" value="0">
+						</div>
+					</div>
+
+					<div class="form-row">
+						<div>
+							<label for="dwCount">Death Wave Count</label>
+							<input id="dwCount" type="number" min="0" step="1" value="0">
+						</div>
+						<div class="cooldown-field">
+							<label for="dwCooldown">Death Wave Cooldown (s)</label>
+							<input id="dwCooldown" type="number" min="0" step="1" value="0">
+						</div>
+					</div>
+
+					<div class="form-row">
+						<div>
+							<label for="gbDuration">Golden Bot Duration (s)</label>
+							<input id="gbDuration" type="number" min="0" step="1" value="0">
+						</div>
+						<div class="cooldown-field">
+							<label for="gbCooldown">Golden Bot Cooldown (s)</label>
+							<input id="gbCooldown" type="number" min="0" step="1" value="0">
+						</div>
+					</div>
+
+					<div class="form-row">
+						<div>
+							<label for="spotlightCount">Spotlight Count (1-4)</label>
+							<input id="spotlightCount" type="number" min="1" max="4" step="1" value="1">
+						</div>
+						<div>
+							<label for="spotlightAngle">Spotlight Angle (deg)</label>
+							<input id="spotlightAngle" type="number" min="0" max="360" step="1" value="45">
+						</div>
+					</div>
+
+					<div class="controls" style="margin-top:8px;">
+						<button id="calculateUwEcoBtn">Calculate UW Eco</button>
+					</div>
+
+					<div id="uwEcoKpiGrid" class="kpi-grid"></div>
+					<div id="uwEcoOutput" class="output-box">No section output yet.</div>
+					<div id="uwEcoGraph" class="graph-box">No graph data yet.</div>
+				</div>
+			</details>
+
+			<details id="sectionDefense" class="analyzer-section">
+				<summary>defense breakdown</summary>
+				<div class="section-body">
+					<div class="controls" style="margin-top:8px;">
+						<button id="calculateDefenseBtn">Calculate Defense Breakdown</button>
+					</div>
+
+					<div id="defenseKpiGrid" class="kpi-grid"></div>
+					<div id="defenseOutput" class="output-box">No section output yet.</div>
+					<div id="defenseGraph" class="graph-box">No graph data yet.</div>
+				</div>
+			</details>
+
+			<details id="sectionAttack" class="analyzer-section">
+				<summary>attack breakdown</summary>
+				<div class="section-body">
+					<div class="controls" style="margin-top:8px;">
+						<button id="calculateAttackBtn">Calculate Attack Breakdown</button>
+					</div>
+
+					<div id="attackKpiGrid" class="kpi-grid"></div>
+					<div id="attackOutput" class="output-box">No section output yet.</div>
+					<div id="attackGraph" class="graph-box">No graph data yet.</div>
+				</div>
+			</details>
+
+			<details id="sectionCoins" class="analyzer-section">
+				<summary>coin breakdown</summary>
+				<div class="section-body">
+					<div class="form-row">
+						<div>
+							<label for="coinScale">Coin Scale</label>
+							<input id="coinScale" type="number" min="0" step="0.01" value="1">
+						</div>
+						<div>
+							<label for="targetCoins">Target Coins</label>
+							<input id="targetCoins" type="number" min="0" step="1" value="0">
+						</div>
+					</div>
+
+					<div class="controls" style="margin-top:8px;">
+						<button id="calculateCoinsBtn">Calculate Coin Breakdown</button>
+					</div>
+
+					<div id="coinsKpiGrid" class="kpi-grid"></div>
+					<div id="coinsOutput" class="output-box">No section output yet.</div>
+					<div id="coinsGraph" class="graph-box">No graph data yet.</div>
+				</div>
+			</details>
+		</section>
+	</div>
+</div>
+
+<script>
+	let parsedStatsState = null;
+
+	const parserDebugState = {
+		last: null
+	};
+
+	function parseTower(s) {
+		s = String(s || "").trim();
+		if (!s) return NaN;
+		const val = s.slice(0, -1);
+		const mult = s.slice(-1);
+		let value = parseFloat(val);
+		switch (mult) {
+			case "k":
+			case "K": value *= 1e3; break;
+			case "M": value *= 1e6; break;
+			case "B": value *= 1e9; break;
+			case "T": value *= 1e12; break;
+			case "q": value *= 1e15; break;
+			case "Q": value *= 1e18; break;
+			case "s": value *= 1e21; break;
+			case "S": value *= 1e24; break;
+			case "O": value *= 1e27; break;
+			case "N": value *= 1e30; break;
+			case "D": value *= 1e33; break;
+			default: return parseFloat(s);
+		}
+		return value;
+	}
+
+	function parseTimeToMinutes(str) {
+		let min = 0;
+		const d = String(str || "").match(/(\d+)\s*d/i);
+		const h = String(str || "").match(/(\d+)\s*h/i);
+		const m = String(str || "").match(/(\d+)\s*m/i);
+		const s = String(str || "").match(/(\d+)\s*s/i);
+		if (d) min += parseInt(d[1], 10) * 60 * 24;
+		if (h) min += parseInt(h[1], 10) * 60;
+		if (m) min += parseInt(m[1], 10);
+		if (s) min += parseInt(s[1], 10) / 60;
+		return min;
+	}
+
+	function normalizeLabel(s) {
+		return String(s || "")
+			.toLowerCase()
+			.replace(/\s+/g, " ")
+			.trim();
+	}
+
+	function parseNumericValue(raw) {
+		if (!raw) return null;
+		const cleaned = String(raw)
+			.trim()
+			.replace(/\$/g, "")
+			.replace(/^x/i, "")
+			.replace(/,/g, ".");
+
+		const m = cleaned.match(/^([+-]?\d+(?:\.\d+)?)([KMBTqQsSOND]?)$/);
+		if (!m) return null;
+		if (m[2]) return parseTower(m[1] + m[2]);
+		return parseFloat(m[1]);
+	}
+
+	function mapKeyBySection(section, key) {
+		const k = normalizeLabel(key);
+		const s = normalizeLabel(section);
+
+		if (s === "damage") {
+			const m = {
+				"damage dealt": "Damage Dealt",
+				"projectiles": "Projectiles Damage",
+				"death ray": "Death Ray Damage",
+				"thorns": "Thorn Damage",
+				"orbs": "Orb Damage",
+				"land mines": "Land Mine Damage",
+				"chain lightning": "Chain Lightning Damage",
+				"smart missiles": "Smart Missile Damage",
+				"inner land mines": "Inner Land Mine Damage",
+				"poison swamp": "Swamp Damage",
+				"death wave": "Death Wave Damage",
+				"black hole": "Black Hole Damage",
+				"flame bot": "Flame Bot Damage"
+			};
+			return m[k] || key;
+		}
+
+		if (s === "damage taken") {
+			if (k === "tower") return "Damage Taken";
+			if (k === "wall") return "Damage Taken Wall";
+			return key;
+		}
+
+		if (s === "coins") {
+			const m = {
+				"coin bonus upgrade": "Coins from Coin Upgrade",
+				"golden tower": "Coins From Golden Tower",
+				"death wave": "Coins From Death Wave",
+				"spotlight": "Coins From Spotlight",
+				"black hole": "Coins From Black Hole",
+				"orbs": "Coins From Orb",
+				"coins / wave": "Coins per Wave"
+			};
+			return m[k] || key;
+		}
+
+		if (s === "cash") {
+			if (k === "golden tower") return "Cash From Golden Tower";
+			return key;
+		}
+
+		return key;
+	}
+
+	function parseStats(text) {
+		const lines = String(text || "").split("\n").map(l => l.trim());
+		const stats = { meta: {} };
+		const debug = {
+			linesTotal: lines.length,
+			sections: [],
+			remappedKeys: [],
+			duplicateKeys: [],
+			unrecognizedLines: []
+		};
+
+		const sectionHeaders = new Set([
+			"battle report",
+			"records",
+			"combat",
+			"damage",
+			"damage taken",
+			"bonus health gained",
+			"health regenerated",
+			"damage blocked",
+			"utility",
+			"counts",
+			"enemies hit by",
+			"killed with effect active",
+			"total enemies",
+			"coins",
+			"cash",
+			"currencies",
+			"enemies destroyed",
+			"enemies destroyed by",
+			"bots",
+			"guardian"
+		]);
+
+		let currentSection = "";
+		let currentCategory = "meta";
+
+		function ensureCategory(category) {
+			if (!stats[category]) stats[category] = {};
+			return stats[category];
+		}
+
+		function storeStat(category, key, value) {
+			const bucket = ensureCategory(category || "meta");
+			if (Object.prototype.hasOwnProperty.call(bucket, key) && bucket[key] !== value) {
+				debug.duplicateKeys.push({
+					section: category || "meta",
+					key,
+					existingValue: bucket[key],
+					newValue: value,
+					storedAs: key
+				});
+			}
+			bucket[key] = value;
+		}
+
+		for (const line of lines) {
+			if (!line) continue;
+
+			const normalized = normalizeLabel(line);
+			if (sectionHeaders.has(normalized)) {
+				currentSection = line;
+				currentCategory = line;
+				ensureCategory(currentCategory);
+				if (!debug.sections.includes(currentSection)) debug.sections.push(currentSection);
+				continue;
+			}
+
+			const tierMatch = line.match(/^Tier\s+([0-9]+\+?)$/i);
+			const baseMatch = line.match(/^(.+?)\s+([\$xX]?[+-]?[0-9][0-9.,]*[KMBTqQsSOND]?)$/i);
+			const timeMatch = line.match(/^(Game Time|Real Time)\s*(.*)$/i);
+			const battleDateMatch = line.match(/^Battle Date\s*(.*)$/i);
+			const killedByMatch = line.match(/^Killed [bB]y\s*(.*)$/i);
+
+			if (battleDateMatch) {
+				const src = battleDateMatch[1]
+					.replace("Okt", "Oct")
+					.replace("Dez", "Dec")
+					.replace("Mär", "Mar")
+					.replace("Mai", "May");
+				const ts = new Date(src).getTime();
+				if (!isNaN(ts)) storeStat(currentCategory, "Date", ts);
+				else storeStat(currentCategory, "DateRaw", battleDateMatch[1]);
+				continue;
+			}
+
+			if (tierMatch) {
+				storeStat(currentCategory, "Tier", tierMatch[1].trim());
+				continue;
+			}
+
+			if (timeMatch) {
+				const key = timeMatch[1].trim();
+				const value = parseTimeToMinutes(timeMatch[2].trim());
+				storeStat(currentCategory, key, value);
+				continue;
+			}
+
+			if (killedByMatch) {
+				storeStat(currentCategory, "Killed by", killedByMatch[1].trim());
+				continue;
+			}
+
+			if (baseMatch) {
+				const rawKey = baseMatch[1].trim();
+				const mappedKey = mapKeyBySection(currentSection, rawKey);
+				if (rawKey !== mappedKey) {
+					debug.remappedKeys.push({ section: currentSection || "(none)", from: rawKey, to: mappedKey });
+				}
+				const value = parseNumericValue(baseMatch[2]);
+				if (value !== null && !isNaN(value)) {
+					storeStat(currentCategory, mappedKey, value);
+				}
+				continue;
+			}
+
+			debug.unrecognizedLines.push({ section: currentSection || "(none)", line: line });
+		}
+
+		debug.parsedKeyCount = Object.values(stats).reduce((sum, bucket) => {
+			if (!bucket || typeof bucket !== "object") return sum;
+			return sum + Object.keys(bucket).length;
+		}, 0);
+		parserDebugState.last = debug;
+		return stats;
+	}
+
+	function formatTowerNumber(num) {
+		if (typeof num !== "number" || isNaN(num)) return String(num ?? "");
+		const abs = Math.abs(num);
+		if (abs < 1e3) return num.toFixed(2);
+		if (abs < 1e6) return (num / 1e3).toFixed(2) + "k";
+		if (abs < 1e9) return (num / 1e6).toFixed(2) + "M";
+		if (abs < 1e12) return (num / 1e9).toFixed(2) + "B";
+		if (abs < 1e15) return (num / 1e12).toFixed(2) + "T";
+		if (abs < 1e18) return (num / 1e15).toFixed(2) + "q";
+		if (abs < 1e21) return (num / 1e18).toFixed(2) + "Q";
+		if (abs < 1e24) return (num / 1e21).toFixed(2) + "s";
+		if (abs < 1e27) return (num / 1e24).toFixed(2) + "S";
+		if (abs < 1e30) return (num / 1e27).toFixed(2) + "O";
+		if (abs < 1e33) return (num / 1e30).toFixed(2) + "N";
+		return (num / 1e33).toFixed(2) + "D";
+	}
+
+	function renderKpiGrid(targetId, metrics) {
+		const target = document.getElementById(targetId);
+		if (!target) return;
+		target.innerHTML = (metrics || []).map(function(m) {
+			return '<div class="kpi"><p class="k">' + escapeHtml(m.label) + '</p><p class="v">' + escapeHtml(String(m.value)) + '</p></div>';
+		}).join("");
+	}
+
+	function renderStatsTable(stats) {
+		const statsBody = document.getElementById("statsBody");
+		const rows = [];
+		Object.keys(stats || {})
+			.sort((a, b) => a.localeCompare(b, undefined, { sensitivity: "base" }))
+			.forEach(function(category) {
+				const bucket = stats[category];
+				if (!bucket || typeof bucket !== "object") return;
+				Object.keys(bucket)
+					.sort((a, b) => a.localeCompare(b, undefined, { numeric: true, sensitivity: "base" }))
+					.forEach(function(key) {
+						rows.push({ category: category, key: key, value: bucket[key] });
+					});
+			});
+
+		if (rows.length === 0) {
+			statsBody.innerHTML = '<tr><td colspan="3" class="muted">No values detected.</td></tr>';
+			return;
+		}
+
+		statsBody.innerHTML = rows.map(function(row) {
+			const val = typeof row.value === "number" ? formatTowerNumber(row.value) : String(row.value);
+			return '<tr><td>' + escapeHtml(row.category) + '</td><td>' + escapeHtml(row.key) + '</td><td>' + escapeHtml(val) + '</td></tr>';
+		}).join("");
+	}
+
+	function buildGeneralEvaluation(stats) {
+		const battle = stats["Battle Report"] || {};
+		const coinsCategory = stats["Coins"] || {};
+		const currenciesCategory = stats["Currencies"] || {};
+
+		const realTimeMin = Number(battle["Real Time"] || 0);
+		const realTimeHours = realTimeMin > 0 ? realTimeMin / 60 : 0;
+		const coins = Number(coinsCategory["Coins Earned"] ?? battle["Coins Earned"] ?? battle["Coins earned"] ?? 0);
+		const cells = Number(currenciesCategory["Cells Earned"] ?? battle["Cells Earned"] ?? 0);
+		const cellsPerHourRaw = Number(battle["Cells Per Hour"] ?? battle["Cells per hour"] ?? 0);
+		const cellsPerHour = cellsPerHourRaw > 0 ? cellsPerHourRaw : (realTimeHours > 0 ? cells / realTimeHours : 0);
+		const rerollShards = Number(currenciesCategory["Reroll Shards Earned"] ?? 0);
+		const rerollShardsPerHour = realTimeHours > 0 ? rerollShards / realTimeHours : 0;
+		const wave = Number(battle["Wave"] || 0);
+
+		const rawCoinsPerHour = Number(battle["Coins Per Hour"] ?? battle["Coins per hour"] ?? coinsCategory["Coins Per Hour"] ?? 0);
+		const baseCoinsPerHour = rawCoinsPerHour > 0 ? rawCoinsPerHour : (realTimeHours > 0 ? coins / realTimeHours : 0);
+
+		return {
+			runDate: battle["Date"] ? new Date(battle["Date"]).toLocaleString("en-US") : "Unknown",
+			tier: battle["Tier"] || "-",
+			wave: wave || "-",
+			killedBy: battle["Killed by"] || "-",
+			metrics: [
+				{ label: "Coins", value: formatTowerNumber(coins) },
+				{ label: "Coins/h", value: formatTowerNumber(baseCoinsPerHour) },
+				{ label: "Cells", value: formatTowerNumber(cells) },
+				{ label: "Cells/h", value: formatTowerNumber(cellsPerHour) },
+				{ label: "Reroll Shards", value: formatTowerNumber(rerollShards) },
+				{ label: "Reroll Shards/h", value: formatTowerNumber(rerollShardsPerHour) },
+				{ label: "Real Time (h)", value: realTimeHours > 0 ? realTimeHours.toFixed(2) : "0.00" },
+				{ label: "Wave", value: wave || "-" }
+			]
+		};
+	}
+
+	function calculateUwEcoSection(stats, inputParams) {
+		const totalEnemiesCategory = stats["Total Enemies"] || {};
+		const killedEffectCategory = stats["Killed With Effect Active"] || {};
+		const enemiesHitByCategory = stats["Enemies Hit By"] || {};
+
+		function uptimePercent(durationSec, cooldownSec) {
+			if (durationSec <= 0 || cooldownSec <= 0) return 0;
+			if (durationSec >= cooldownSec) return 100;
+			return (durationSec / cooldownSec) * 100;
+		}
+
+		const gtUptime = uptimePercent(inputParams.gtDuration, inputParams.gtCooldown);
+		const bhUptime = uptimePercent(inputParams.bhDuration, inputParams.bhCooldown);
+		const gbUptime = uptimePercent(inputParams.gbDuration, inputParams.gbCooldown);
+		const dwUptime = uptimePercent(inputParams.dwCount * 4, inputParams.dwCooldown);
+		const spotlightCoverage = (Math.max(1, Math.min(4, inputParams.spotlightCount)) * inputParams.spotlightAngle) / 360 * 100;
+
+		const totalEnemies = Math.max(1, Number(totalEnemiesCategory["Total Enemies"] || 0));
+		const gbAffectedCount = Number(killedEffectCategory["Golden Bot"] || 0);
+		const gtAffectedCount = Number(killedEffectCategory["Golden Tower"] || 0);
+		const bhAffectedCount = Number(enemiesHitByCategory["Black Hole"] || 0);
+		const dwAffectedCount = Number(killedEffectCategory["Death Wave"] || 0);
+		const spotlightAffectedCount = Number(killedEffectCategory["Spotlight"] || 0);
+
+		const gbAffectedPercent = (gbAffectedCount / totalEnemies) * 100;
+		const gtAffectedPercent = (gtAffectedCount / totalEnemies) * 100;
+		const bhAffectedPercent = (bhAffectedCount / totalEnemies) * 100;
+		const dwAffectedPercent = (dwAffectedCount / totalEnemies) * 100;
+		const spotlightAffectedPercent = (spotlightAffectedCount / totalEnemies) * 100;
+
+		return {
+			metrics: [
+				{ label: "GT Uptime", value: gtUptime.toFixed(2) + "%" },
+				{ label: "BH Uptime", value: bhUptime.toFixed(2) + "%" },
+				{ label: "GB Uptime", value: gbUptime.toFixed(2) + "%" },
+				{ label: "DW Uptime", value: dwUptime.toFixed(2) + "%" },
+				{ label: "Spotlight Coverage", value: spotlightCoverage.toFixed(2) + "%" },
+				{ label: "GB Affected %", value: gbAffectedPercent.toFixed(2) + "%" },
+				{ label: "GT Affected %", value: gtAffectedPercent.toFixed(2) + "%" },
+				{ label: "BH Affected %", value: bhAffectedPercent.toFixed(2) + "%" },
+				{ label: "DW Affected %", value: dwAffectedPercent.toFixed(2) + "%" },
+				{ label: "Spotlight Affected %", value: spotlightAffectedPercent.toFixed(2) + "%" }
+			],
+			html:
+				"Estimated uptime and hit-share metrics are based on your cooldown inputs and parsed run totals.",
+			bars: [
+				{ label: "GT Uptime", value: gtUptime },
+				{ label: "BH Uptime", value: bhUptime },
+				{ label: "GB Uptime", value: gbUptime },
+				{ label: "DW Uptime", value: dwUptime }
+			]
+		};
+	}
+
+	function calculateDefenseSection(stats) {
+		const damageTaken = stats["Damage Taken"] || {};
+		const damageBlocked = stats["Damage Blocked"] || {};
+		const towerTaken = Number(damageTaken["Damage Taken"] || 0);
+		const wallTaken = Number(damageTaken["Damage Taken Wall"] || 0);
+		const takenTotal = towerTaken + wallTaken;
+		const reductionOrder = [
+			"Defense %",
+			"Defense Absolute",
+			"Chrono Field",
+			"Primordial Collapse",
+			"Chain Thunder",
+			"Flame Bot"
+		];
+
+		const blockedRows = Object.entries(damageBlocked)
+			.map(function(entry) {
+				return { label: entry[0], amount: Number(entry[1] || 0) };
+			})
+			.filter(function(row) {
+				return Number.isFinite(row.amount) && row.amount > 0;
+			})
+			.sort(function(a, b) {
+				return b.amount - a.amount;
+			});
+
+		const blockedTotal = blockedRows.reduce(function(sum, row) {
+			return sum + row.amount;
+		}, 0);
+
+		const totalDamage = takenTotal + blockedTotal;
+		const blockedShare = totalDamage > 0 ? (blockedTotal / totalDamage) * 100 : 0;
+		const takenShare = totalDamage > 0 ? (takenTotal / totalDamage) * 100 : 0;
+
+		const orderedBlockedRows = reductionOrder
+			.map(function(stepKey) {
+				return blockedRows.find(function(row) {
+					return row.label === stepKey;
+				}) || null;
+			})
+			.filter(function(row) {
+				return !!row;
+			});
+
+		const extraBlockedRows = blockedRows.filter(function(row) {
+			return !reductionOrder.includes(row.label);
+		});
+
+		let remaining = totalDamage;
+		const sequenceRows = orderedBlockedRows.concat(extraBlockedRows).map(function(row) {
+			const before = remaining;
+			const removed = Math.max(0, Math.min(row.amount, before));
+			const after = Math.max(0, before - removed);
+			remaining = after;
+			return {
+				label: row.label,
+				amount: row.amount,
+				removed: removed,
+				before: before,
+				after: after,
+				share: totalDamage > 0 ? (row.amount / totalDamage) * 100 : 0,
+				reductionPercent: before > 0 ? (removed / before) * 100 : 0
+			};
+		});
+
+		const finalDamage = remaining;
+		const mismatch = Math.abs(finalDamage - takenTotal);
+		const tableRows = sequenceRows.map(function(row) {
+			return {
+				component: "Blocked - " + row.label,
+				amount: row.amount,
+				share: row.share,
+				reductionAmount: row.removed,
+				reductionPercent: row.reductionPercent,
+				remainingAfter: row.after
+			};
+		});
+
+		tableRows.push({
+			component: "Taken (Tower + Wall)",
+			amount: takenTotal,
+			share: takenShare,
+			reductionAmount: null,
+			reductionPercent: null,
+			remainingAfter: takenTotal
+		});
+
+		return {
+			metrics: [
+				{ label: "Total Damage", value: formatTowerNumber(totalDamage) },
+				{ label: "Total Blocked", value: formatTowerNumber(blockedTotal) },
+				{ label: "Total Taken", value: formatTowerNumber(takenTotal) },
+				{ label: "Blocked Share", value: blockedShare.toFixed(2) + "%" }
+			],
+			html:
+				"Damage distribution built from sections Damage Taken and Damage Blocked. Tower taken: " +
+				formatTowerNumber(towerTaken) + ", wall taken: " + formatTowerNumber(wallTaken) +
+				(mismatch > 0.5 ? ". Final Sankey remainder differs from taken total by " + formatTowerNumber(mismatch) + "." : "."),
+			tableRows: tableRows,
+			sankey: {
+				startAmount: totalDamage,
+				steps: sequenceRows,
+				finalAmount: finalDamage,
+				finalLabel: "Taken (Tower + Wall)"
+			}
+		};
+	}
+
+	function renderDefenseSankey(result) {
+		const sankey = result.sankey;
+		if (!sankey || sankey.startAmount <= 0) {
+			return "No graph data yet.";
+		}
+
+		const leftX = 44;
+		const rightX = 468;
+		const nodeHeight = 28;
+		const rowGap = 86;
+		const topY = 18;
+		const maxFlowWidth = 320;
+		const minFlowWidth = 10;
+		const startAmount = Math.max(1, Number(sankey.startAmount || 0));
+		const scaleWidth = function(amount) {
+			if (amount <= 0) return 0;
+			return Math.max(minFlowWidth, (amount / startAmount) * maxFlowWidth);
+		};
+
+		const steps = sankey.steps || [];
+		const svgHeight = topY + nodeHeight + ((steps.length + 1) * rowGap) + 26;
+		const parts = [];
+		const labels = [];
+
+		parts.push('<svg viewBox="0 0 860 ' + svgHeight + '" role="img" aria-label="Defense sankey diagram" style="width:100%; height:auto; display:block;">');
+		parts.push('<rect x="0" y="0" width="860" height="' + svgHeight + '" rx="12" fill="#f8faff"></rect>');
+
+		steps.forEach(function(step, index) {
+			const stageY = topY + (index * rowGap);
+			const nextY = topY + ((index + 1) * rowGap);
+			const beforeWidth = scaleWidth(step.before);
+			const afterWidth = scaleWidth(step.after);
+			const removedWidth = Math.max(0, beforeWidth - afterWidth);
+			const removedNodeWidth = Math.max(64, scaleWidth(step.removed));
+			const nodeColor = index === 0 ? "#dbe6ff" : "#e8efff";
+			const nextNodeColor = step.after > 0 ? "#edf3ff" : "#f4f7ff";
+			const removedY = stageY + nodeHeight + 12;
+
+			parts.push('<rect x="' + leftX + '" y="' + stageY + '" width="' + beforeWidth.toFixed(2) + '" height="' + nodeHeight + '" rx="8" fill="' + nodeColor + '" stroke="#9cb5eb"></rect>');
+			parts.push('<polygon points="' +
+				leftX + ',' + (stageY + nodeHeight) + ' ' +
+				(leftX + afterWidth).toFixed(2) + ',' + (stageY + nodeHeight) + ' ' +
+				(leftX + afterWidth).toFixed(2) + ',' + nextY + ' ' +
+				leftX + ',' + nextY +
+			'" fill="#c7d7fb" opacity="0.92"></polygon>');
+
+			if (removedWidth > 0) {
+				parts.push('<polygon points="' +
+					(leftX + afterWidth).toFixed(2) + ',' + (stageY + nodeHeight) + ' ' +
+					(leftX + beforeWidth).toFixed(2) + ',' + (stageY + nodeHeight) + ' ' +
+					(rightX + removedNodeWidth).toFixed(2) + ',' + removedY + ' ' +
+					rightX + ',' + removedY +
+				'" fill="#ffb88a" opacity="0.88"></polygon>');
+				parts.push('<rect x="' + rightX + '" y="' + removedY + '" width="' + removedNodeWidth.toFixed(2) + '" height="' + nodeHeight + '" rx="8" fill="#ffd5b6" stroke="#ef9c62"></rect>');
+			}
+
+			parts.push('<rect x="' + leftX + '" y="' + nextY + '" width="' + afterWidth.toFixed(2) + '" height="' + nodeHeight + '" rx="8" fill="' + nextNodeColor + '" stroke="#9cb5eb"></rect>');
+
+			labels.push('<text x="' + (leftX + 10) + '" y="' + (stageY + 18) + '" font-size="12" font-family="Segoe UI, Trebuchet MS, sans-serif" fill="#14305f">' +
+				escapeHtml((index === 0 ? 'Full Damage' : 'Remaining') + ' - ' + formatTowerNumber(step.before)) +
+			'</text>');
+			labels.push('<text x="' + (leftX + 10) + '" y="' + (nextY + 18) + '" font-size="12" font-family="Segoe UI, Trebuchet MS, sans-serif" fill="#14305f">' +
+				escapeHtml((index === steps.length - 1 ? sankey.finalLabel : 'Remaining After ' + step.label) + ' - ' + formatTowerNumber(step.after)) +
+			'</text>');
+			if (removedWidth > 0) {
+				labels.push('<text x="' + (rightX + 10) + '" y="' + (removedY + 18) + '" font-size="12" font-family="Segoe UI, Trebuchet MS, sans-serif" fill="#6d3200">' +
+					escapeHtml(step.label + ' - ' + formatTowerNumber(step.removed)) +
+				'</text>');
+			}
+		});
+
+		parts.push(labels.join(""));
+		parts.push('</svg>');
+		return parts.join("");
+	}
+
+	function calculateAttackSection(stats) {
+		const damage = stats["Damage"] || {};
+		const totalDamage = Number(damage["Damage Dealt"] || 0);
+
+		const sourceRows = Object.entries(damage)
+			.filter(function(entry) {
+				return entry[0] !== "Damage Dealt";
+			})
+			.map(function(entry) {
+				return {
+					source: entry[0],
+					amount: Number(entry[1] || 0)
+				};
+			})
+			.filter(function(row) {
+				return Number.isFinite(row.amount) && row.amount > 0;
+			})
+			.sort(function(a, b) {
+				return b.amount - a.amount;
+			});
+
+		const tableRows = sourceRows.map(function(row) {
+			return {
+				source: row.source,
+				amount: row.amount,
+				share: totalDamage > 0 ? (row.amount / totalDamage) * 100 : 0
+			};
+		});
+
+		const sourceSum = tableRows.reduce(function(sum, row) {
+			return sum + row.amount;
+		}, 0);
+		const sourceCoverage = totalDamage > 0 ? (sourceSum / totalDamage) * 100 : 0;
+
+		return {
+			metrics: [
+				{ label: "Total Damage", value: formatTowerNumber(totalDamage) },
+				{ label: "Total Source Damage", value: formatTowerNumber(sourceSum) },
+				{ label: "Source Coverage", value: sourceCoverage.toFixed(2) + "%" },
+				{ label: "Source Count", value: tableRows.length }
+			],
+			html: "Damage sources listed below are from the Damage section and shown relative to Damage Dealt.",
+			tableRows: tableRows,
+			chartRows: tableRows.map(function(row) {
+				return {
+					label: row.source,
+					amount: row.amount,
+					share: row.share
+				};
+			})
+		};
+	}
+
+	function calculateCoinSection(stats, inputParams) {
+		const coins = stats["Coins"] || {};
+		const battle = stats["Battle Report"] || {};
+		const coinScale = Math.max(0, Number(inputParams.coinScale || 1));
+		const totalCoins = Number(coins["Coins Earned"] ?? battle["Coins Earned"] ?? 0);
+		const gtCoins = Number(coins["Coins From Golden Tower"] || 0);
+		const bhCoins = Number(coins["Coins From Black Hole"] || 0);
+		const dwCoins = Number(coins["Coins From Death Wave"] || 0);
+		const targetCoins = Math.max(0, Number(inputParams.targetCoins || 0));
+
+		const scaledCoins = totalCoins * coinScale;
+		const uwCoins = gtCoins + bhCoins + dwCoins;
+		const uwShare = totalCoins > 0 ? (uwCoins / totalCoins) * 100 : 0;
+		const targetProgress = targetCoins > 0 ? Math.min(100, (scaledCoins / targetCoins) * 100) : 0;
+
+		return {
+			metrics: [
+				{ label: "Total Coins", value: formatTowerNumber(totalCoins) },
+				{ label: "Scaled Coins", value: formatTowerNumber(scaledCoins) },
+				{ label: "UW Coins", value: formatTowerNumber(uwCoins) },
+				{ label: "UW Share", value: uwShare.toFixed(2) + "%" }
+			],
+			html: targetCoins > 0
+				? "Scaled coin progress to target: " + targetProgress.toFixed(2) + "%."
+				: "Set Target Coins to enable progress tracking.",
+			progressPercent: targetProgress
+		};
+	}
+
+	function renderGeneralSection(stats) {
+		const evaluation = buildGeneralEvaluation(stats);
+		renderKpiGrid("generalKpiGrid", evaluation.metrics);
+
+		document.getElementById("meta").innerHTML =
+			"Date: <strong>" + escapeHtml(evaluation.runDate) + "</strong> | " +
+			"Tier: <strong>" + escapeHtml(String(evaluation.tier)) + "</strong> | " +
+			"Wave: <strong>" + escapeHtml(String(evaluation.wave)) + "</strong> | " +
+			"Killed by: <strong>" + escapeHtml(String(evaluation.killedBy)) + "</strong>";
+	}
+
+	function renderUwEcoSection(result) {
+		renderKpiGrid("uwEcoKpiGrid", result.metrics);
+		document.getElementById("uwEcoOutput").textContent = result.html;
+		document.getElementById("uwEcoGraph").innerHTML = result.bars.map(function(bar) {
+			const v = Math.max(0, Math.min(100, Number(bar.value || 0)));
+			return '<div style="margin-bottom:8px;"><div style="font-size:12px; margin-bottom:3px;">' + escapeHtml(bar.label) + ' (' + v.toFixed(2) + '%)</div><div class="bar-track"><div class="bar-fill" style="width:' + v.toFixed(2) + '%"></div></div></div>';
+		}).join("");
+	}
+
+	function renderProgressSection(kpiId, outputId, graphId, result, label) {
+		renderKpiGrid(kpiId, result.metrics);
+		document.getElementById(outputId).textContent = result.html;
+		document.getElementById(graphId).innerHTML =
+			'<div style="font-size:12px; margin-bottom:3px;">' + escapeHtml(label) + ' (' + result.progressPercent.toFixed(2) + '%)</div>' +
+			'<div class="bar-track"><div class="bar-fill" style="width:' + result.progressPercent.toFixed(2) + '%"></div></div>';
+	}
+
+	function renderDefenseSection(result) {
+		renderKpiGrid("defenseKpiGrid", result.metrics);
+
+		const tableHtml = [
+			'<div style="margin-bottom:7px;">' + escapeHtml(result.html) + '</div>',
+			'<table><thead><tr><th>Component</th><th>Amount</th><th>Share of Total</th><th>Step Reduction</th><th>Remaining After</th></tr></thead><tbody>',
+			result.tableRows.map(function(row) {
+				const reductionText = (row.reductionAmount !== null && row.reductionPercent !== null)
+					? row.reductionPercent.toFixed(2) + '%'
+					: '-';
+				const remainingText = typeof row.remainingAfter === 'number' ? formatTowerNumber(row.remainingAfter) : '-';
+				return '<tr><td>' + escapeHtml(row.component) + '</td><td>' + escapeHtml(formatTowerNumber(row.amount)) + '</td><td>' + escapeHtml(row.share.toFixed(2) + "%") + '</td><td>' + escapeHtml(reductionText) + '</td><td>' + escapeHtml(remainingText) + '</td></tr>';
+			}).join(""),
+			'</tbody></table>'
+		].join("");
+
+		document.getElementById("defenseOutput").innerHTML = tableHtml;
+		document.getElementById("defenseGraph").innerHTML = renderDefenseSankey(result);
+	}
+
+	function renderAttackSection(result) {
+		renderKpiGrid("attackKpiGrid", result.metrics);
+
+		const tableHtml = [
+			'<div style="margin-bottom:7px;">' + escapeHtml(result.html) + '</div>',
+			'<table><thead><tr><th>Source</th><th>Absolute</th><th>% of Damage Dealt</th></tr></thead><tbody>',
+			(result.tableRows || []).map(function(row) {
+				return '<tr><td>' + escapeHtml(row.source) + '</td><td>' + escapeHtml(formatTowerNumber(row.amount)) + '</td><td>' + escapeHtml(row.share.toFixed(2) + "%") + '</td></tr>';
+			}).join(""),
+			'</tbody></table>'
+		].join("");
+		document.getElementById("attackOutput").innerHTML = tableHtml;
+
+		const pieColors = [
+			"#1757d6", "#2aa198", "#ff8c42", "#a06cd5", "#e76f51",
+			"#4caf50", "#f4a261", "#3a86ff", "#8338ec", "#ef476f"
+		];
+		let start = 0;
+		const slices = (result.chartRows || []).map(function(row, idx) {
+			const pct = Math.max(0, Math.min(100, Number(row.share || 0)));
+			const from = start;
+			const to = start + pct;
+			start = to;
+			return {
+				label: row.label,
+				amount: row.amount,
+				share: pct,
+				color: pieColors[idx % pieColors.length],
+				from: from,
+				to: to
+			};
+		});
+
+		const gradient = slices.length > 0
+			? slices.map(function(s) {
+				return s.color + " " + s.from.toFixed(2) + "% " + s.to.toFixed(2) + "%";
+			}).join(", ")
+			: "#e9eefb 0% 100%";
+
+		const legend = slices.map(function(s) {
+			return '<div style="display:flex; align-items:center; gap:8px; margin-bottom:6px; font-size:12px;">' +
+				'<span style="display:inline-block; width:11px; height:11px; border-radius:2px; background:' + s.color + ';"></span>' +
+				escapeHtml(s.label) + ' - ' + escapeHtml(formatTowerNumber(s.amount)) + ' (' + s.share.toFixed(2) + '%)' +
+				'</div>';
+		}).join("");
+
+		document.getElementById("attackGraph").innerHTML =
+			'<div style="display:flex; gap:16px; align-items:flex-start; flex-wrap:wrap;">' +
+			'<div style="width:180px; height:180px; border-radius:50%; border:1px solid #d8e0ef; background: conic-gradient(' + gradient + ');"></div>' +
+			'<div style="min-width:220px;">' + legend + '</div>' +
+			'</div>';
+	}
+
+	function renderCoinSection(result) {
+		renderProgressSection("coinsKpiGrid", "coinsOutput", "coinsGraph", result, "Target Progress");
+	}
+
+	function escapeHtml(s) {
+		return String(s)
+			.replace(/&/g, "&amp;")
+			.replace(/</g, "&lt;")
+			.replace(/>/g, "&gt;")
+			.replace(/\"/g, "&quot;")
+			.replace(/\'/g, "&#039;");
+	}
+
+	function setStatus(message, type) {
+		const el = document.getElementById("status");
+		el.textContent = message;
+		el.className = "status" + (type ? " " + type : "");
+	}
+
+	function bindEvents() {
+		const parseBtn = document.getElementById("parseBtn");
+		const calculateUwEcoBtn = document.getElementById("calculateUwEcoBtn");
+		const calculateDefenseBtn = document.getElementById("calculateDefenseBtn");
+		const calculateAttackBtn = document.getElementById("calculateAttackBtn");
+		const calculateCoinsBtn = document.getElementById("calculateCoinsBtn");
+		const loadExampleBtn = document.getElementById("loadExampleBtn");
+		const clearBtn = document.getElementById("clearBtn");
+		const syncCooldowns = document.getElementById("syncCooldowns");
+		const sharedCooldownRow = document.getElementById("sharedCooldownRow");
+		const cooldownFields = Array.from(document.querySelectorAll(".cooldown-field"));
+
+		function applyCooldownMode() {
+			const useShared = !!syncCooldowns.checked;
+			sharedCooldownRow.style.display = useShared ? "grid" : "none";
+			cooldownFields.forEach(function(el) {
+				el.style.display = useShared ? "none" : "block";
+			});
+		}
+
+		syncCooldowns.addEventListener("change", applyCooldownMode);
+		applyCooldownMode();
+
+		calculateUwEcoBtn.disabled = true;
+		calculateDefenseBtn.disabled = true;
+		calculateAttackBtn.disabled = true;
+		calculateCoinsBtn.disabled = true;
+
+		parseBtn.addEventListener("click", function() {
+			const text = document.getElementById("runInput").value;
+
+			if (!text.trim()) {
+				setStatus("Please paste run data first.", "warn");
+				return;
+			}
+
+			parsedStatsState = parseStats(text);
+			renderGeneralSection(parsedStatsState);
+			renderStatsTable(parsedStatsState);
+			document.getElementById("debugOut").textContent = JSON.stringify(parserDebugState.last, null, 2);
+			calculateUwEcoBtn.disabled = false;
+			calculateDefenseBtn.disabled = false;
+			calculateAttackBtn.disabled = false;
+			calculateCoinsBtn.disabled = false;
+			setStatus("Run data parsed. Expand a section and calculate its metrics.", "ok");
+		});
+
+		calculateUwEcoBtn.addEventListener("click", function() {
+			if (!parsedStatsState) {
+				setStatus("Please parse run data first.", "warn");
+				return;
+			}
+
+			const useSharedCooldown = !!syncCooldowns.checked;
+			const sharedCooldown = Number(document.getElementById("sharedCooldown").value || 0);
+
+			const inputParams = {
+				gtDuration: Number(document.getElementById("gtDuration").value || 0),
+				gtCooldown: useSharedCooldown ? sharedCooldown : Number(document.getElementById("gtCooldown").value || 0),
+				bhDuration: Number(document.getElementById("bhDuration").value || 0),
+				bhCooldown: useSharedCooldown ? sharedCooldown : Number(document.getElementById("bhCooldown").value || 0),
+				dwCount: Number(document.getElementById("dwCount").value || 0),
+				dwCooldown: useSharedCooldown ? sharedCooldown : Number(document.getElementById("dwCooldown").value || 0),
+				gbDuration: Number(document.getElementById("gbDuration").value || 0),
+				gbCooldown: useSharedCooldown ? sharedCooldown : Number(document.getElementById("gbCooldown").value || 0),
+				spotlightCount: Number(document.getElementById("spotlightCount").value || 1),
+				spotlightAngle: Number(document.getElementById("spotlightAngle").value || 0)
+			};
+
+			const result = calculateUwEcoSection(parsedStatsState, inputParams);
+			renderUwEcoSection(result);
+			setStatus("UW eco section updated.", "ok");
+		});
+
+		calculateDefenseBtn.addEventListener("click", function() {
+			if (!parsedStatsState) {
+				setStatus("Please parse run data first.", "warn");
+				return;
+			}
+
+			const result = calculateDefenseSection(parsedStatsState);
+			renderDefenseSection(result);
+			setStatus("Defense section updated.", "ok");
+		});
+
+		calculateAttackBtn.addEventListener("click", function() {
+			if (!parsedStatsState) {
+				setStatus("Please parse run data first.", "warn");
+				return;
+			}
+
+			const result = calculateAttackSection(parsedStatsState);
+			renderAttackSection(result);
+			setStatus("Attack section updated.", "ok");
+		});
+
+		calculateCoinsBtn.addEventListener("click", function() {
+			if (!parsedStatsState) {
+				setStatus("Please parse run data first.", "warn");
+				return;
+			}
+
+			const result = calculateCoinSection(parsedStatsState, {
+				coinScale: Number(document.getElementById("coinScale").value || 1),
+				targetCoins: Number(document.getElementById("targetCoins").value || 0)
+			});
+			renderCoinSection(result);
+			setStatus("Coin section updated.", "ok");
+		});
+
+		loadExampleBtn.addEventListener("click", function() {
+			const sample = [
+				"Battle Report",
+				"Battle Date 10 Apr 2026 12:30",
+				"Tier 13",
+				"Wave 5231",
+				"Game Time 3h 12m 10s",
+				"Real Time 2h 01m 40s",
+				"Killed by Boss",
+				"Coins",
+				"Coins Earned 2.31T",
+				"Coins / Wave 4.4B",
+				"Currencies",
+				"Cells Earned 17.4M",
+				"Enemies Hit By",
+				"Black Hole 120.5K",
+				"Killed With Effect Active",
+				"Golden Tower 115000",
+				"Golden Bot 62000",
+				"Death Wave 83000",
+				"Spotlight 91000",
+				"Total Enemies",
+				"Total Enemies 430000"
+			].join("\n");
+			document.getElementById("runInput").value = sample;
+			setStatus("Example loaded.");
+		});
+
+		clearBtn.addEventListener("click", function() {
+			parsedStatsState = null;
+			syncCooldowns.checked = false;
+			document.getElementById("runInput").value = "";
+			document.getElementById("sharedCooldown").value = "0";
+			document.getElementById("gtDuration").value = "0";
+			document.getElementById("gtCooldown").value = "0";
+			document.getElementById("bhDuration").value = "0";
+			document.getElementById("bhCooldown").value = "0";
+			document.getElementById("dwCount").value = "0";
+			document.getElementById("dwCooldown").value = "0";
+			document.getElementById("gbDuration").value = "0";
+			document.getElementById("gbCooldown").value = "0";
+			document.getElementById("spotlightCount").value = "1";
+			document.getElementById("spotlightAngle").value = "45";
+			document.getElementById("coinScale").value = "1";
+			document.getElementById("targetCoins").value = "0";
+			document.getElementById("statsBody").innerHTML = '<tr><td colspan="3" class="muted">No analysis run yet.</td></tr>';
+			document.getElementById("generalKpiGrid").innerHTML = "";
+			document.getElementById("uwEcoKpiGrid").innerHTML = "";
+			document.getElementById("defenseKpiGrid").innerHTML = "";
+			document.getElementById("attackKpiGrid").innerHTML = "";
+			document.getElementById("coinsKpiGrid").innerHTML = "";
+			document.getElementById("uwEcoOutput").textContent = "No section output yet.";
+			document.getElementById("defenseOutput").textContent = "No section output yet.";
+			document.getElementById("attackOutput").textContent = "No section output yet.";
+			document.getElementById("coinsOutput").textContent = "No section output yet.";
+			document.getElementById("uwEcoGraph").textContent = "No graph data yet.";
+			document.getElementById("defenseGraph").textContent = "No graph data yet.";
+			document.getElementById("attackGraph").textContent = "No graph data yet.";
+			document.getElementById("coinsGraph").textContent = "No graph data yet.";
+			document.getElementById("meta").textContent = "";
+			document.getElementById("debugOut").textContent = "No run processed.";
+			calculateUwEcoBtn.disabled = true;
+			calculateDefenseBtn.disabled = true;
+			calculateAttackBtn.disabled = true;
+			calculateCoinsBtn.disabled = true;
+			applyCooldownMode();
+			setStatus("Input reset.");
+		});
+
+	}
+
+	bindEvents();
+</script>
+</body>
+</html>

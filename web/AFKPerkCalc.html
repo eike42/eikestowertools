@@ -1,0 +1,191 @@
+<html>
+<head>
+<title>TowerCalc - Perk simulator</title>
+<script
+  src="https://code.jquery.com/jquery-3.7.1.min.js"
+  integrity="sha256-/JqT3SQfawRcv/BIHPThkBvs0OEvtFFmqPF/lYI/Cxo="
+  crossorigin="anonymous"></script>
+<script src="towercalc.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/flot/4.2.6/jquery.canvaswrapper.min.js" integrity="sha512-Vj7rQBCQNDAbJNM5crhM6nzBoR1oIeE82OQDmx0l1ptN+7T5AQuRzzsQ+rqkuibqT14JjChkpB+8DW5fmjrjnw==" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/flot/4.2.6/jquery.flot.js" integrity="sha512-b0/xA9839WwDovAHA0nMyu/6/Vtd58xyMub+i9MRpz7Lv6PbeasD5Ww4SB3QEZHC/KZTsj1+cJFJY9Ivei1wfQ==" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/flot/4.2.6/jquery.flot.uiConstants.min.js" integrity="sha512-02f7kh8oGru0zDziDj2PSAa6OIhkh0FR8StvcTvmN6bsqzxnrD9TFP7TffYVbX5HLMjgL8syriRbn7W1zTq9DQ==" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/flot/4.2.6/jquery.flot.browser.min.js" integrity="sha512-VQd/q4C1w/PN6MI00uurfwSiFb6tLkt/ocprvkNjh7Dgf7phD3Z970CSxX5ni5aYC4bsinQtfKUk7aCL5bTQfQ==" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/flot/4.2.6/jquery.colorhelpers.min.js" integrity="sha512-fOvetjhMPbrraqJeIs0HQpIF/EQ3ejpUV/N5K1KZSxXSBYZGOO93DQ0g86nYHJJaXU/gydnyzX346OvxwPJl5A==" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/flot/4.2.6/jquery.flot.drawSeries.min.js" integrity="sha512-9Fp66i1Z/ZSW1sjrQVnjucgz2oV8tTSzOI6BgdvmMi6zbVuuVPLiicuGMkUn7kCVsWr6lA5U/EyigK1VOVmTUA==" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/flot/4.2.6/jquery.flot.saturated.min.js" integrity="sha512-D0IA9fF9uH3Q6dTdjIOmnOrwROGVxXC3CO1dz5TxNNT10zRS/fCiAdxCovyLtYPS9v1S3usVL8lonvqb4Nr8JQ==" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
+<script
+  src="https://code.jquery.com/ui/1.14.0/jquery-ui.min.js"
+  integrity="sha256-Fb0zP4jE3JHqu+IBB9YktLcSjI1Zc6J2b6gTjB0LpoM="
+  crossorigin="anonymous"></script>
+<link rel="stylesheet" href="https://code.jquery.com/ui/1.14.0/themes/base/jquery-ui.css" /> 
+<style>
+.slid { margin-left:30px; margin-right:20px; margin-bottom:10px; }
+</style>
+<script>
+
+basebag = [
+    {"name": "Max Health",		 		"rarity": 0, "type": 1, "amount": 5, "priority": 8, "misc": 2, "first_pick": 0},
+    {"name": "Damage", 			 		"rarity": 0, "type": 2, "amount": 5, "priority": 0, "misc": 0, "first_pick": 0},
+    {"name": "Coins",			 		"rarity": 0, "type": 1, "amount": 5, "priority": 7, "misc": 2, "first_pick": 0},
+    {"name": "Defense Abso",	 		"rarity": 0, "type": 2, "amount": 5, "priority": 0, "misc": 0, "first_pick": 0},
+    {"name": "Cash", 			 		"rarity": 0, "type": 2, "amount": 5, "priority": 0, "misc": 0, "first_pick": 0},
+    {"name": "Health Reg",		 		"rarity": 0, "type": 2, "amount": 5, "priority": 0, "misc": 0, "first_pick": 0},
+    {"name": "Interest",		 		"rarity": 0, "type": 2, "amount": 5, "priority": 0, "misc": 0, "first_pick": 0},
+    {"name": "Land Mine Dam",	 		"rarity": 0, "type": 2, "amount": 5, "priority": 0, "misc": 0, "first_pick": 0},
+    {"name": "Free Upgrades",	 		"rarity": 0, "type": 1, "amount": 5, "priority": 6, "misc": 2, "first_pick": 0},
+    {"name": "Defense Percent",  		"rarity": 0, "type": 1, "amount": 5, "priority": 5, "misc": 2, "first_pick": 0},
+    {"name": "Bounce Shot",		 		"rarity": 0, "type": 2, "amount": 3, "priority": 0, "misc": 0, "first_pick": 0},
+    {"name": "Perk Wave Requ",	 		"rarity": 0, "type": 1, "amount": 3, "priority": 9, "misc": 3, "first_pick": 1},
+    {"name": "Orbs",			 		"rarity": 0, "type": 2, "amount": 2, "priority": 0, "misc": 0, "first_pick": 0},
+    {"name": "Random Ult",		 		"rarity": 0, "type": 2, "amount": 2, "priority": 0, "misc": 0, "first_pick": 0},
+    {"name": "Game Speed",		 		"rarity": 0, "type": 1, "amount": 1, "priority": 4, "misc": 2, "first_pick": 0},
+    {"name": "Smart Missile",	 		"rarity": 1, "type": 0, "amount": 1, "priority": 0, "misc": 0, "first_pick": 0},
+    {"name": "Swamp",			 		"rarity": 1, "type": 0, "amount": 1, "priority": 0, "misc": 0, "first_pick": 0},
+    {"name": "Death Wave",		 		"rarity": 1, "type": 0, "amount": 1, "priority": 0, "misc": 0, "first_pick": 0},
+    {"name": "Inner Mine",		 		"rarity": 1, "type": 2, "amount": 1, "priority": 0, "misc": 0, "first_pick": 0},
+    {"name": "Gold Tower",		 		"rarity": 1, "type": 1, "amount": 1, "priority": 3, "misc": 2, "first_pick": 0},
+    {"name": "Chain Light",		 		"rarity": 1, "type": 2, "amount": 1, "priority": 0, "misc": 0, "first_pick": 0},
+    {"name": "Chrono",			 		"rarity": 1, "type": 0, "amount": 1, "priority": 0, "misc": 0, "first_pick": 0},
+    {"name": "Black Hole",		 		"rarity": 1, "type": 1, "amount": 1, "priority": 2, "misc": 2, "first_pick": 0},
+    {"name": "Spot Light",		 		"rarity": 1, "type": 2, "amount": 1, "priority": 0, "misc": 0, "first_pick": 0},
+    {"name": "Tow Dam / Boss Hp", 		"rarity": 2, "type": 2, "amount": 1, "priority": 0, "misc": 1, "first_pick": 0},
+    {"name": "Coin / Hp", 				"rarity": 2, "type": 2, "amount": 1, "priority": 0, "misc": 0, "first_pick": 0},
+    {"name": "Eme Hp / Tow Reg", 		"rarity": 2, "type": 2, "amount": 1, "priority": 0, "misc": 0, "first_pick": 0},
+    {"name": "Eme Dam / Tow Dam", 		"rarity": 2, "type": 1, "amount": 1, "priority": 1, "misc": 2, "first_pick": 0},
+    {"name": "Ranged / Rang Dam", 		"rarity": 2, "type": 2, "amount": 1, "priority": 0, "misc": 1, "first_pick": 0},
+    {"name": "Eme Sped / Eme Dam", 		"rarity": 2, "type": 0, "amount": 1, "priority": 0, "misc": 1, "first_pick": 0},
+    {"name": "Cash Wave / Cash Kill",	"rarity": 2, "type": 2, "amount": 1, "priority": 0, "misc": 0, "first_pick": 0},
+    {"name": "Tow Reg / Tow Hp", 		"rarity": 2, "type": 0, "amount": 1, "priority": 0, "misc": 1, "first_pick": 0},
+    {"name": "Boss Hp / Boss Sped",		"rarity": 2, "type": 2, "amount": 1, "priority": 0, "misc": 0, "first_pick": 0},
+    {"name": "Life Steal / Knockback",  "rarity": 2, "type": 2, "amount": 1, "priority": 0, "misc": 1, "first_pick": 0},
+]
+
+
+
+ $( function() {
+	
+	
+		$('#run').click(function()
+		{
+			runsim();
+		
+		});
+
+		
+	function calc_perks_per_wave(spb,req)
+	{
+		var ret = [ [0],[0],[0],[0] ];
+		var pwrfac = 0.2 * (1 + spb * 0.01);
+	
+		for(var i=1;i<100;i++)
+		{
+			var next = i < 21 ? 200 :
+				i < 31 ? 250 :
+				i < 41 ? 300 : 350;
+		
+			ret[0][i] = ret[0][i - 1] + Math.floor((next - req));
+			ret[1][i] = ret[1][i - 1] + Math.floor((next - req) * (1 - pwrfac));
+			ret[2][i] = ret[2][i - 1] + Math.floor((next - req) * (1 - pwrfac - pwrfac));
+			ret[3][i] = ret[3][i - 1] + Math.floor((next - req) * (1 - pwrfac - pwrfac - pwrfac));
+		}
+		return ret;
+	}
+	
+	function draw_perk(bag, c)
+	{
+		var list = bag.filter(item => item.rarity == c && item.type != 0);
+		if(list.length==0)
+		{
+			return null; // change this later
+		}
+	
+		var r = Math.floor(Math.random() * list.length);
+		return list[r];
+	}
+		
+	
+	function draw_perks(pcc,bag)
+	{
+		var ret = [];
+		for(var i=0;i<pcc;i++)
+		{
+			var r = Math.random(); // 65/20/15
+			if(r < 0.65) c = 0
+			else if (r < 0.85) c = 1;
+			else c = 2;
+		
+			var choice = draw_perk(bag,c);
+			ret.push(choice);
+		}
+	}
+	
+	
+	
+	function runsim()
+	{
+		// get input
+		var spb = $('#spb').val();
+		var req = $('#req').val();
+		var pcc = $('#pcc').val();
+		var stop = false;
+		var debug = $('#debug').val();
+		var result= "";
+		var bag = JSON.parse(JSON.stringify(basebag)); // clone
+		var wave = 0;
+		var perkperwave = calc_perks_per_wave(spb,req);
+	
+		while(!stop)
+		{
+			var choices = draw_perks(pcc,bag);
+			console.log(choices);
+		
+		
+		
+		
+		
+		
+		
+			stop = true;
+		}
+		$('#result').html(result);
+	
+	}
+	
+	
+	
+	
+	
+	
+  } );
+
+
+
+
+
+
+</script>
+
+</head>
+<body>
+Normal wave count: <input type="text" id="wave" value="10000" /> <br />
+Total coins without perks: <input type="text" id="total" value="100" /> B <br />
+Standard perk bonus lab: <input type="text" id="spb" value="21" /> level <br />
+Perk waves required lab: <input type="text" id="req" value="8" /> level <br />
+Perk choice count: <input type="text" id="pcc" value="4" /> <br />
+Debug: <input type="checkbox" id="debug" checked /> <br />
+<button id="run">Run simulation</button>
+
+
+<div id="result">
+</div>
+
+
+
+
+
+
+
+
+</body>
+</html>
+

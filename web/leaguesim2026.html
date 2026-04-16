@@ -1,0 +1,266 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+	<meta charset="UTF-8" />
+	<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+	<title>League Simulation</title>
+	<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+	<style>
+		body { font-family: Arial, sans-serif; margin: 20px; }
+		.input-group { margin-bottom: 10px; }
+		label { display: inline-block; width: 120px; }
+		#results-table { margin-top: 20px; border-collapse: collapse; }
+		#results-table th, #results-table td { border: 1px solid #ccc; padding: 4px 8px; }
+		#chart-container { width: 100%; max-width: 800px; margin-top: 30px; }
+	</style>
+</head>
+<body>
+	<h2>League Simulation</h2>
+	<div id="inputs">
+	<div class="input-group"><label for="copper">Copper Leagues:</label><input type="number" id="copper"       value="390" /></div>
+	<div class="input-group"><label for="silver">Silver Leagues:</label><input type="number" id="silver"       value="293" /></div>
+	<div class="input-group"><label for="gold">Gold Leagues:</label><input type="number" id="gold"             value="1117" /></div>
+	<div class="input-group"><label for="platinum">Platinum Leagues:</label><input type="number" id="platinum" value="702" /></div>
+	<div class="input-group"><label for="champ">Champ Leagues:</label><input type="number" id="champ"          value="452" /></div>
+	<div class="input-group"><label for="legend">Legend Leagues:</label><input type="number" id="legend"       value="293" /></div>
+	<div class="input-group"><label for="newUsers">New Users/Week:</label><input type="number" id="newUsers"   value="3000" oninput="runSimulation()" /></div>
+	<div class="input-group"><label for="copperLeave">Copper Leave %:</label>
+		<input type="range" id="copperLeave" value="6.3" min="0" max="10" step="0.1" style="width:300px; height:32px;" oninput="updateSlider('copperLeave')" />
+		<span id="copperLeaveVal">6.3</span>%
+	</div>
+	<div class="input-group"><label for="silverLeave">Silver Leave %:</label>
+		<input type="range" id="silverLeave" value="5.7" min="0" max="10" step="0.1" style="width:300px; height:32px;" oninput="updateSlider('silverLeave')" />
+		<span id="silverLeaveVal">5.7</span>%
+	</div>
+	<div class="input-group"><label for="goldLeave">Gold Leave %:</label>
+		<input type="range" id="goldLeave" value="2.6" min="0" max="10" step="0.1" style="width:300px; height:32px;" oninput="updateSlider('goldLeave')" />
+		<span id="goldLeaveVal">2.5</span>%
+	</div>
+	<div class="input-group"><label for="platinumLeave">Platinum Leave %:</label>
+		<input type="range" id="platinumLeave" value="0.6" min="0" max="10" step="0.1" style="width:300px; height:32px;" oninput="updateSlider('platinumLeave')" />
+		<span id="platinumLeaveVal">0.5</span>%
+	</div>
+	<div class="input-group"><label for="champLeave">Champ Leave %:</label>
+		<input type="range" id="champLeave" value="0.4" min="0" max="10" step="0.1" style="width:300px; height:32px;" oninput="updateSlider('champLeave')" />
+		<span id="champLeaveVal">0.4</span>%
+	</div>
+	<div class="input-group"><label for="legendLeave">Legend Leave %:</label>
+		<input type="range" id="legendLeave" value="0.3" min="0" max="10" step="0.1" style="width:300px; height:32px;" oninput="updateSlider('legendLeave')" />
+		<span id="legendLeaveVal">0.3</span>%
+	</div>
+	<hr />
+	<div class="input-group"><label for="playerLeague">Player League:</label>
+		<select id="playerLeague">
+			<option value="0">Copper</option>
+			<option value="1">Silver</option>
+			<option value="2">Gold</option>
+			<option value="3">Platinum</option>
+			<option value="4">Champ</option>
+			<option value="5" selected>Legend</option>
+		</select>
+	</div>
+	<div class="input-group"><label for="playerPlace">Player Placement:</label>
+		<input type="number" id="playerPlace" value="20" min="1" max="30" />
+	</div>
+		<button onclick="runSimulation()">Run Simulation</button>
+	</div>
+	<div id="output">
+		<h3>Results Table</h3>
+		<div id="table-container"></div>
+		<h3>Tracked Player Progress</h3>
+		<div id="player-progress"></div>
+		<div id="chart-container">
+			<canvas id="leagueChart"></canvas>
+		</div>
+	</div>
+	<script>
+window.onload = function() {
+	runSimulation();
+};
+function updateSlider(id) {
+	var val = parseFloat(document.getElementById(id).value).toFixed(1);
+	document.getElementById(id + 'Val').textContent = val;
+	runSimulation();
+}
+	function runSimulation() {
+		// Get user inputs
+		let copper = parseInt(document.getElementById('copper').value);
+		let silver = parseInt(document.getElementById('silver').value);
+		let gold = parseInt(document.getElementById('gold').value);
+		let platinum = parseInt(document.getElementById('platinum').value);
+		let champ = parseInt(document.getElementById('champ').value);
+		let legend = parseInt(document.getElementById('legend').value);
+		let newUsers = parseInt(document.getElementById('newUsers').value);
+
+		let leavePercents = [
+			parseFloat(document.getElementById('copperLeave').value) / 100,
+			parseFloat(document.getElementById('silverLeave').value) / 100,
+			parseFloat(document.getElementById('goldLeave').value) / 100,
+			parseFloat(document.getElementById('platinumLeave').value) / 100,
+			parseFloat(document.getElementById('champLeave').value) / 100,
+			parseFloat(document.getElementById('legendLeave').value) / 100
+		];
+
+		let leagueNames = ['Copper', 'Silver', 'Gold', 'Platinum', 'Champ', 'Legend'];
+		let leagueCounts = [copper, silver, gold, platinum, champ, legend];
+		let rounds = 100;
+		let history = [];
+
+		// Player tracking inputs
+		let playerLeague = parseInt(document.getElementById('playerLeague').value);
+		let playerPlace = parseInt(document.getElementById('playerPlace').value);
+
+		let players = leagueCounts.map(l => l * 30);
+		history.push([...leagueCounts]);
+
+		let trackedLeague = playerLeague;
+		let trackedPlace = playerPlace;
+
+		// Track player
+		let playerAbsolutePosition = 0; // 1 means first place in legends
+		for (let i = 5; i >= trackedLeague; i--) {
+			if(trackedLeague == i)
+				playerAbsolutePosition += players[i] * ((trackedPlace - .5) / 30);
+			else
+				playerAbsolutePosition += players[i];
+		}
+		let playerHistory = [{ round: 0, league: playerLeague, place: playerPlace, playerAbsolutePosition:playerAbsolutePosition }];
+
+
+		for (let r = 0; r < rounds; r++) {
+
+
+
+			// Add new users to Copper
+			players[0] += newUsers;
+
+			// Players leaving per league
+			for (let i = 0; i < players.length; i++) {
+				let leaving = Math.floor(players[i] * leavePercents[i]);
+				// If tracked player is in this league and their place is within the leaving range, they leave
+				players[i] -= leaving;
+
+				// track player absolute position adjustment
+				if(trackedLeague < i) // player rises in rank as others leave
+					playerAbsolutePosition -= leaving;
+				else if(trackedLeague == i) {
+					let percetageOfLeavingPlayersAbove =  (trackedPlace - .5) / 30;
+					playerAbsolutePosition -= leaving * percetageOfLeavingPlayersAbove;
+				}
+			}
+
+			// Promotions (best 4 per league move up)
+			for (let i = 0; i < 5; i++) {
+				let promote = leagueCounts[i] * 4;
+				// If tracked player is in this league and their place is within the promote range, they move up
+				players[i] -= promote;
+				players[i+1] += promote;
+			}
+
+			// Demotions (worst 6 per league move down, Platinum and above)
+			for (let i = 3; i < 6; i++) {
+				let demote = leagueCounts[i] * 6;
+				// If tracked player is in this league and their place is in the last demote places, they move down
+				players[i] -= demote;
+				players[i-1] += demote;
+			}
+
+			// Recalculate league counts
+			for (let i = 0; i < leagueCounts.length; i++) {
+				leagueCounts[i] = Math.ceil(players[i] / 30);
+			}
+
+			history.push([...leagueCounts]);
+
+			// new absolute position based on leaving players
+			let countBetterPlayers = 0;
+			for(let i=5; i>=0; i--) {
+				if(countBetterPlayers + players[i] < playerAbsolutePosition) {
+					countBetterPlayers += players[i];
+				} else {
+					trackedLeague = i;
+					let positionInLeague = playerAbsolutePosition - countBetterPlayers;
+					trackedPlace = Math.ceil(positionInLeague / players[i] * 30) + 1;
+					break;
+				}
+			}
+
+
+
+			// Update tracked player's league and place based on absolute position
+
+
+
+			playerHistory.push({ round: r+1, league: trackedLeague, place: trackedPlace, playerAbsolutePosition: playerAbsolutePosition });
+		}
+	
+
+		renderTable(history, leagueNames, playerHistory);
+		renderChart(history, leagueNames);
+	}
+
+
+
+	function renderTable(history, leagueNames, playerHistory) {
+		let html = '<table id="results-table"><thead><tr><th>Round</th><th>Date</th>';
+		for (let name of leagueNames) html += `<th>${name}</th>`;
+		html += '<th>Player Placement</th></tr></thead><tbody>';
+		let rowCount = 0;
+		// Date logic: round 0 is 19.08.2025, then alternate Sat (+4d) and Wed (+3d)
+		let startDate = new Date(2026, 0, 3); // August is month 7
+		let dates = [formatDate(startDate)];
+		let lastDate = new Date(startDate);
+		for (let i = 1; i < history.length; i++) {
+			let offset = (i % 2 === 1) ? 4 : 3;
+			lastDate = new Date(lastDate.getTime());
+			lastDate.setDate(lastDate.getDate() + offset);
+			dates.push(formatDate(lastDate));
+		}
+		function formatDate(date) {
+			let d = new Date(date);
+			let day = String(d.getDate()).padStart(2, '0');
+			let month = String(d.getMonth() + 1).padStart(2, '0');
+			let year = d.getFullYear();
+			return `${day}.${month}.${year}`;
+		}
+		for (let r = 0; r < history.length; r += 1) {
+			rowCount++;
+			html += `<tr><td>${r}</td><td>${dates[r]}</td>`;
+			for (let val of history[r]) html += `<td>${val}</td>`;
+			let placement = playerHistory[r].place +  " in " + leagueNames[playerHistory[r].league] + " (Top "+parseInt(playerHistory[r].playerAbsolutePosition)+")";
+			html += `<td>${placement}</td>`;
+			html += '</tr>';
+		}
+		html += '</tbody></table>';
+		document.getElementById('table-container').innerHTML = html;
+	}
+
+	function renderChart(history, leagueNames) {
+		let ctx = document.getElementById('leagueChart').getContext('2d');
+		let data = {
+			labels: history.map((_, i) => i+1),
+			datasets: leagueNames.map((name, idx) => ({
+				label: name,
+				data: history.map(h => h[idx]),
+				borderColor: `hsl(${idx*60},70%,50%)`,
+				fill: false,
+				pointRadius: 0,
+				pointHoverRadius: 0
+			}))
+		};
+		if (window.leagueChart && typeof window.leagueChart.destroy === 'function') {
+			window.leagueChart.destroy();
+		}
+		window.leagueChart = new Chart(ctx, {
+			type: 'line',
+			data: data,
+			options: {
+				responsive: true,
+				plugins: { legend: { position: 'top' } },
+				scales: { x: { title: { display: true, text: 'Round' } }, y: { title: { display: true, text: 'Leagues' }, beginAtZero: true } }
+			}
+		});
+	}
+	</script>
+</body>
+</html>
