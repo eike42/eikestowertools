@@ -461,6 +461,19 @@
 					<div id="coinsGraph" class="graph-box">No graph data yet.</div>
 				</div>
 			</details>
+
+			<details id="sectionRatios" class="analyzer-section">
+				<summary>ratios and effectiveness</summary>
+				<div class="section-body">
+					<div class="controls" style="margin-top:8px;">
+						<button id="calculateRatiosBtn">Calculate Ratios and Effectiveness</button>
+					</div>
+
+					<div id="ratiosKpiGrid" class="kpi-grid"></div>
+					<div id="ratiosOutput" class="output-box">No section output yet.</div>
+					<div id="ratiosGraph" class="graph-box">No graph data yet.</div>
+				</div>
+			</details>
 		</section>
 	</div>
 </div>
@@ -1114,6 +1127,111 @@
 		};
 	}
 
+	function getStatFromParsedStats(stats, key) {
+		if (!stats || !key) return 0;
+		const preferred = [
+			"Battle Report",
+			"Coins",
+			"Currencies",
+			"Damage",
+			"Damage Taken",
+			"Damage Blocked",
+			"Enemies Hit By",
+			"Killed With Effect Active",
+			"Total Enemies",
+			"Counts",
+			"Utility"
+		];
+
+		for (const section of preferred) {
+			const bucket = stats[section];
+			if (bucket && Object.prototype.hasOwnProperty.call(bucket, key)) {
+				return Number(bucket[key] || 0);
+			}
+		}
+
+		for (const section of Object.keys(stats)) {
+			const bucket = stats[section];
+			if (bucket && Object.prototype.hasOwnProperty.call(bucket, key)) {
+				return Number(bucket[key] || 0);
+			}
+		}
+
+		return 0;
+	}
+
+	function calculateRatiosEffectivenessSection(stats) {
+		function ratioPercent(part, total) {
+			if (!(total > 0) || !(part > 0)) return 0;
+			return (part / total) * 100;
+		}
+
+		const totalEnemies = getStatFromParsedStats(stats, "Total Enemies");
+		const destroyedByOrbs = stats["Enemies Destroyed By"]["Orbs"] || 0;
+		const hitByOrbs = stats["Enemies Hit By"]["Orbs"] || 0;
+		const spotlightDestroyed = stats["Killed With Effect Active"]["Spotlight"] || 0;
+		const goldenBotDestroyed = stats["Killed With Effect Active"]["Golden Bot"] || 0;
+		const deathWaveTagged = stats["Enemies Hit By"]["Death Wave"] || 0;
+		const summonedEnemies = getStatFromParsedStats(stats, "Summoned Enemies");
+		const wavesSkipped = getStatFromParsedStats(stats, "Waves Skipped");
+		const wave = getStatFromParsedStats(stats, "Wave");
+		const ehls = getStatFromParsedStats(stats, "Enemy Health Levels Skipped");
+		const eals = getStatFromParsedStats(stats, "Enemy Attack Levels Skipped");
+
+		const ratioOrbDestroy = ratioPercent(destroyedByOrbs, totalEnemies);
+		const ratioOrbHit = ratioPercent(hitByOrbs, totalEnemies);
+		const ratioSpotlight = ratioPercent(spotlightDestroyed, totalEnemies);
+		const ratioGoldenBot = ratioPercent(goldenBotDestroyed, totalEnemies);
+		const ratioDeathwave = ratioPercent(deathWaveTagged, totalEnemies);
+		const ratioSummon = ratioPercent(summonedEnemies, totalEnemies);
+		const ratioWaveskip = ratioPercent(wavesSkipped, wave);
+		const ratioEhls = ratioPercent(ehls, wave);
+		const ratioEals = ratioPercent(eals, wave);
+
+		const damageDealt = getStatFromParsedStats(stats, "Damage Dealt") || getStatFromParsedStats(stats, "Damage dealt");
+		const damageParts = [
+			"Projectiles Damage",
+			"Orb Damage",
+			"Thorn Damage",
+			"Thorn damage",
+			"Rend Armor Damage",
+			"Death Wave Damage",
+			"Black Hole Damage",
+			"Chain Lightning Damage",
+			"Smart Missile Damage",
+			"Inner Land Mine Damage",
+			"Land Mine Damage",
+			"Death Ray Damage",
+			"Flame Bot Damage"
+		];
+		
+		const rows = [
+			{ label: "Ratio Orb Destroy", value: ratioOrbDestroy },
+			{ label: "Ratio Orb Hit", value: ratioOrbHit },
+			{ label: "Ratio Spotlight", value: ratioSpotlight },
+			{ label: "Ratio Golden Bot", value: ratioGoldenBot },
+			{ label: "Ratio Deathwave", value: ratioDeathwave },
+			{ label: "Ratio Summon", value: ratioSummon },
+			{ label: "Ratio Waveskip", value: ratioWaveskip },
+			{ label: "Ratio EHLS", value: ratioEhls },
+			{ label: "Ratio EALS", value: ratioEals },
+		];
+
+		return {
+			metrics: [
+				{ label: "Orb Destroy %", value: ratioOrbDestroy.toFixed(2) + "%" },
+				{ label: "Orb Hit %", value: ratioOrbHit.toFixed(2) + "%" },
+				{ label: "Spotlight %", value: ratioSpotlight.toFixed(2) + "%" },
+				{ label: "Golden Bot %", value: ratioGoldenBot.toFixed(2) + "%" },
+				{ label: "Deathwave %", value: ratioDeathwave.toFixed(2) + "%" },
+				{ label: "Waveskip %", value: ratioWaveskip.toFixed(2) + "%" }
+			],
+			html:
+				"",
+			rows: rows
+		};
+	}
+
 	function renderGeneralSection(stats) {
 		const evaluation = buildGeneralEvaluation(stats);
 		renderKpiGrid("generalKpiGrid", evaluation.metrics);
@@ -1219,6 +1337,21 @@
 		renderProgressSection("coinsKpiGrid", "coinsOutput", "coinsGraph", result, "Target Progress");
 	}
 
+	function renderRatiosEffectivenessSection(result) {
+		renderKpiGrid("ratiosKpiGrid", result.metrics);
+		document.getElementById("ratiosOutput").textContent = result.html;
+
+		const bars = (result.rows || []).map(function(row) {
+			const clamped = Math.max(0, Math.min(100, Number(row.value || 0)));
+			return '<div style="margin-bottom:8px;"><div style="font-size:12px; margin-bottom:3px;">' +
+				escapeHtml(row.label) + ' (' + clamped.toFixed(2) + '%)</div>' +
+				'<div class="bar-track"><div class="bar-fill" style="width:' + clamped.toFixed(2) + '%"></div></div></div>';
+		}).join("");
+
+		document.getElementById("ratiosGraph").innerHTML =
+			bars;
+	}
+
 	function escapeHtml(s) {
 		return String(s)
 			.replace(/&/g, "&amp;")
@@ -1240,6 +1373,7 @@
 		const calculateDefenseBtn = document.getElementById("calculateDefenseBtn");
 		const calculateAttackBtn = document.getElementById("calculateAttackBtn");
 		const calculateCoinsBtn = document.getElementById("calculateCoinsBtn");
+		const calculateRatiosBtn = document.getElementById("calculateRatiosBtn");
 		const loadExampleBtn = document.getElementById("loadExampleBtn");
 		const clearBtn = document.getElementById("clearBtn");
 		const syncCooldowns = document.getElementById("syncCooldowns");
@@ -1261,6 +1395,7 @@
 		calculateDefenseBtn.disabled = true;
 		calculateAttackBtn.disabled = true;
 		calculateCoinsBtn.disabled = true;
+		calculateRatiosBtn.disabled = true;
 
 		parseBtn.addEventListener("click", function() {
 			const text = document.getElementById("runInput").value;
@@ -1278,6 +1413,7 @@
 			calculateDefenseBtn.disabled = false;
 			calculateAttackBtn.disabled = false;
 			calculateCoinsBtn.disabled = false;
+			calculateRatiosBtn.disabled = false;
 			setStatus("Run data parsed. Expand a section and calculate its metrics.", "ok");
 		});
 
@@ -1344,6 +1480,17 @@
 			setStatus("Coin section updated.", "ok");
 		});
 
+		calculateRatiosBtn.addEventListener("click", function() {
+			if (!parsedStatsState) {
+				setStatus("Please parse run data first.", "warn");
+				return;
+			}
+
+			const result = calculateRatiosEffectivenessSection(parsedStatsState);
+			renderRatiosEffectivenessSection(result);
+			setStatus("Ratios and effectiveness section updated.", "ok");
+		});
+
 		loadExampleBtn.addEventListener("click", function() {
 			const sample = [
 				"Battle Report",
@@ -1395,20 +1542,24 @@
 			document.getElementById("defenseKpiGrid").innerHTML = "";
 			document.getElementById("attackKpiGrid").innerHTML = "";
 			document.getElementById("coinsKpiGrid").innerHTML = "";
+			document.getElementById("ratiosKpiGrid").innerHTML = "";
 			document.getElementById("uwEcoOutput").textContent = "No section output yet.";
 			document.getElementById("defenseOutput").textContent = "No section output yet.";
 			document.getElementById("attackOutput").textContent = "No section output yet.";
 			document.getElementById("coinsOutput").textContent = "No section output yet.";
+			document.getElementById("ratiosOutput").textContent = "No section output yet.";
 			document.getElementById("uwEcoGraph").textContent = "No graph data yet.";
 			document.getElementById("defenseGraph").textContent = "No graph data yet.";
 			document.getElementById("attackGraph").textContent = "No graph data yet.";
 			document.getElementById("coinsGraph").textContent = "No graph data yet.";
+			document.getElementById("ratiosGraph").textContent = "No graph data yet.";
 			document.getElementById("meta").textContent = "";
 			document.getElementById("debugOut").textContent = "No run processed.";
 			calculateUwEcoBtn.disabled = true;
 			calculateDefenseBtn.disabled = true;
 			calculateAttackBtn.disabled = true;
 			calculateCoinsBtn.disabled = true;
+			calculateRatiosBtn.disabled = true;
 			applyCooldownMode();
 			setStatus("Input reset.");
 		});

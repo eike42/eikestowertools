@@ -1627,7 +1627,10 @@ function AddCalculatedValues(history)
         entry.stats["Ratio Spotlight"] = (entry.stats["Destroyed in Spotlight"] && entry.stats["Total Enemies"]) ? (entry.stats["Destroyed in Spotlight"] / entry.stats["Total Enemies"]*100) : 0;
         entry.stats["Ratio Golden Bot"] = (entry.stats["Destroyed in Golden Bot"] && entry.stats["Total Enemies"]) ? (entry.stats["Destroyed in Golden Bot"] / entry.stats["Total Enemies"]*100) : 0;
         entry.stats["Ratio Deathwave"] = (entry.stats["Tagged by Deathwave"] && entry.stats["Total Enemies"]) ? (entry.stats["Tagged by Deathwave"] / entry.stats["Total Enemies"]*100) : 0;
-        entry.stats["Ratio Summon"] = (entry.stats["Summoned enemies"] && entry.stats["Total Enemies"]) ? (entry.stats["Summoned enemies"] / entry.stats["Total Enemies"]*100) : 0;
+        entry.stats["Ratio Summon"] = (entry.stats["Summoned Enemies"] && entry.stats["Total Enemies"]) ? (entry.stats["Summoned Enemies"] / entry.stats["Total Enemies"]*100) : 0;
+        entry.stats["Ratio Waveskip"] = (entry.stats["Waves Skipped"] && entry.stats["Wave"]) ? (entry.stats["Waves Skipped"] / entry.stats["Wave"]*100) : 0;
+        entry.stats["Ratio EHLS"] = (entry.stats["Enemy Health Levels Skipped"] && entry.stats["Wave"]) ? (entry.stats["Enemy Health Levels Skipped"] / entry.stats["Wave"]*100) : 0;
+        entry.stats["Ratio EALS"] = (entry.stats["Enemy Attack Levels Skipped"] && entry.stats["Wave"]) ? (entry.stats["Enemy Attack Levels Skipped"] / entry.stats["Wave"]*100) : 0;
         
         entry.stats["Damage Remaining"] = (entry.stats["Damage dealt"] - 
             ( (entry.stats["Projectiles Damage"] || 0) +
