@@ -447,7 +447,7 @@
             ];
             let html = '<table id="progressTable"><tr><th></th><th>Date</th>';
             for (const key of keys) html += `<th>${key}</th>`;
-            html += '</tr>';
+            html += '<th>Raw</th></tr>';
             for (let i = 0; i < history.length; i++) {
                 const entry = history[i];
                 const date = new Date(entry.time).toLocaleString();
@@ -460,6 +460,10 @@
                         html += '<td>N/A</td>';
                     }
                 }
+				if(entry.text)
+				{
+					html += '<td><a href="raw:'+entry.text+'">test</a></td>';
+				}
                 html += '</tr>';
             }
             html += '</table>';
